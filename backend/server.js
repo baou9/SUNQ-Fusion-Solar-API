@@ -1,4 +1,11 @@
-require('dotenv').config();
+let config;
+try {
+  config = require('./config');
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const pino = require('pino');
@@ -6,10 +13,10 @@ const pinoHttp = require('pino-http');
 const FusionSolarClient = require('./lib/fusionsolarClient');
 
 const app = express();
-const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+const logger = pino({ level: config.LOG_LEVEL });
 app.use(pinoHttp({ logger }));
 app.use(express.json());
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || '*' }));
+app.use(cors({ origin: config.FRONTEND_ORIGIN }));
 
 const client = new FusionSolarClient();
 
@@ -58,9 +65,9 @@ app.get('/api/stations/:code/alarms', async (req, res) => {
 app.get('/healthz', async (req, res) => {
   const net = require('net');
   let proxyReachable = false;
-  if (process.env.MA_PROXY) {
+  if (config.MA_PROXY) {
     try {
-      const u = new URL(process.env.MA_PROXY);
+      const u = new URL(config.MA_PROXY);
       await new Promise((resolve, reject) => {
         const socket = net.createConnection(u.port, u.hostname);
         socket.setTimeout(2000);
@@ -74,10 +81,10 @@ app.get('/healthz', async (req, res) => {
   } else {
     proxyReachable = true;
   }
-  res.json({ ok: true, version: process.env.GIT_SHA || 'dev', proxyReachable });
+  res.json({ ok: true, version: config.GIT_SHA || 'dev', proxyReachable });
 });
 
-const port = process.env.PORT || 8081;
+const port = config.PORT;
 if (require.main === module) {
   app.listen(port, () => logger.info(`Backend listening on ${port}`));
 }

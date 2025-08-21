@@ -4,11 +4,13 @@ const tough = require('tough-cookie');
 const { wrapper } = require('axios-cookiejar-support');
 const NodeCache = require('node-cache');
 
-const FS_BASE = process.env.FS_BASE;
-const FS_USER = process.env.FS_USER;
-const FS_CODE = process.env.FS_CODE;
-const MA_PROXY = process.env.MA_PROXY;
-const CACHE_TTL = parseInt(process.env.CACHE_TTL_SECONDS || '90', 10);
+const {
+  FS_BASE,
+  FS_USER,
+  FS_CODE,
+  MA_PROXY,
+  CACHE_TTL_SECONDS: CACHE_TTL,
+} = require('../config');
 
 class FusionSolarClient {
   constructor() {
