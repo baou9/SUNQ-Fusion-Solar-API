@@ -22,14 +22,22 @@ class FusionSolarClient {
     }));
     this.cache = new NodeCache({ stdTTL: CACHE_TTL });
     this.loggedIn = false;
+    this.loginPromise = null;
   }
 
   async login() {
-    await this.client.post('/thirdData/login', {
-      userName: FS_USER,
-      systemCode: FS_CODE,
-    });
-    this.loggedIn = true;
+    if (!this.loginPromise) {
+      this.loginPromise = (async () => {
+        await this.client.post('/thirdData/login', {
+          userName: FS_USER,
+          systemCode: FS_CODE,
+        });
+        this.loggedIn = true;
+      })().finally(() => {
+        this.loginPromise = null;
+      });
+    }
+    return this.loginPromise;
   }
 
   async ensureLogin() {
