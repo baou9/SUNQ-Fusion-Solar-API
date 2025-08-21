@@ -26,11 +26,29 @@ The backend only responds to origins listed in the comma-separated `CORS_ORIGINS
 
 ## Authentication and retries
 
-The backend logs in to FusionSolar using credentials stored in env vars and retries once if the session expires.
+The backend logs in to FusionSolar using credentials stored in env vars and retries once if the session expires. Network and 5xx errors are retried once with jitter.
 
 ## Green metrics
 
-Carbon avoided calculations use the configurable `CO2_FACTOR_KG_PER_KWH` (default 0.6 kg/kWh).
+The `/api/stations/:code/overview` endpoint returns:
+
+```json
+{
+  "currentPower": 0,
+  "todayEnergy": 0,
+  "totalEnergy": 0,
+  "performanceRatio": 0,
+  "co2AvoidedKg": 0,
+  "treesEquivalent": 0,
+  "homesPowered": 0
+}
+```
+
+Carbon avoided calculations use the configurable `CO2_FACTOR_KG_PER_KWH` (default 0.6 kg/kWh). Trees equivalent and homes powered use `TREE_CO2_KG_PER_YEAR` (21 kg) and `HOME_KWH_PER_DAY` (30 kWh) respectively:
+
+- `co2AvoidedKg = totalEnergy * CO2_FACTOR_KG_PER_KWH`
+- `treesEquivalent = co2AvoidedKg / TREE_CO2_KG_PER_YEAR`
+- `homesPowered = totalEnergy / HOME_KWH_PER_DAY`
 
 ## Credential rotation
 

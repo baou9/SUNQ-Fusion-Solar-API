@@ -14,6 +14,50 @@
           "path": ["api", "stations"]
         }
       }
+    },
+    {
+      "name": "Overview",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/stations/:code/overview",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "stations", ":code", "overview"]
+        }
+      }
+    },
+    {
+      "name": "Devices",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/stations/:code/devices",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "stations", ":code", "devices"]
+        }
+      }
+    },
+    {
+      "name": "Alarms",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/stations/:code/alarms",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "stations", ":code", "alarms"]
+        }
+      }
+    },
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/healthz",
+          "host": ["{{baseUrl}}"],
+          "path": ["healthz"]
+        }
+      }
     }
   ]
 }
