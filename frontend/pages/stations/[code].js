@@ -1,12 +1,15 @@
 import { useRouter } from 'next/router';
 import useSWR from 'swr';
-
-const fetcher = url => fetch(url).then(r => r.json());
+import { fetcher } from '../../lib/api';
 
 export default function StationDetail() {
   const router = useRouter();
   const { code } = router.query;
-  const { data, error } = useSWR(() => code ? `/api/stations/${code}/overview` : null, fetcher, { refreshInterval: 60000 });
+  const { data, error } = useSWR(
+    () => (code ? `/stations/${code}/overview` : null),
+    fetcher,
+    { refreshInterval: 60000 }
+  );
 
   if (error) return <div>Error loading station.</div>;
   if (!data) return <div>Loading...</div>;

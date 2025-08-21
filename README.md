@@ -16,6 +16,12 @@ npm test --prefix backend
 - `.env.example` – environment variables.
 - `docker-compose.yml` – run backend and frontend together.
 
+## Frontend API base
+
+The frontend builds all API requests using the helper in `frontend/lib/api.js`, which
+prefixes paths with `NEXT_PUBLIC_API_BASE`. Set this environment variable to the
+backend's base path (e.g., `/api`).
+
 ## Proxy
 
 All outbound FusionSolar traffic is routed through the proxy defined in `MA_PROXY`.

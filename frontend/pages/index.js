@@ -1,9 +1,8 @@
 import useSWR from 'swr';
-
-const fetcher = url => fetch(url).then(r => r.json());
+import { fetcher } from '../lib/api';
 
 export default function Home() {
-  const { data, error } = useSWR('/api/stations', fetcher, { refreshInterval: 60000 });
+  const { data, error } = useSWR('/stations', fetcher, { refreshInterval: 60000 });
 
   if (error) return <div>Error loading stations.</div>;
   if (!data) return <div>Loading...</div>;
