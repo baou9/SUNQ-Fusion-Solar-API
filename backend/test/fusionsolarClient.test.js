@@ -51,4 +51,20 @@ describe('FusionSolarClient', () => {
     expect(cacheHit.latency).toBe(0);
     expect(miss.latency).toBeGreaterThan(0);
   });
+
+  test('re-logins on 401', async () => {
+    const client = new FusionSolarClient({ info: () => {}, warn: () => {} });
+    nock(process.env.FS_BASE)
+      .post('/thirdData/login')
+      .twice()
+      .reply(200, { data: 'ok' }, { 'set-cookie': ['XSRF-TOKEN=abc'] });
+    nock(process.env.FS_BASE)
+      .post('/thirdData/stationList')
+      .reply(401, { msg: 'USER_MUST_RELOGIN' })
+      .post('/thirdData/stationList')
+      .reply(200, { data: { list: [1] } });
+
+    const data = await client.stationList();
+    expect(data.data.list).toEqual([1]);
+  });
 });

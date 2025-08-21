@@ -9,6 +9,17 @@ npm install --prefix backend
 npm test --prefix backend
 ```
 
+## Runbook
+
+- **Start**: `docker compose up --build` or `npm start --prefix backend`.
+- **Stop**: `Ctrl+C` or `docker compose down`.
+- **Logs**: Backend emits JSON logs with fields `requestId`, `url`, `latency`, `cache` and a proxy flag. View with `docker compose logs backend`.
+- **Frontend**: visit `http://localhost:3137`.
+
+## Proxy notes
+
+All outbound FusionSolar traffic is routed through the proxy defined in `MA_PROXY`. If the proxy is missing or unreachable the API replies with `500 proxy_misconfigured` and logs the failure.
+
 ## Project structure
 
 - `backend/` – Express server that proxies Huawei FusionSolar NB API.
@@ -23,6 +34,10 @@ All outbound FusionSolar traffic is routed through the proxy defined in `MA_PROX
 ## CORS allowlist
 
 The backend only responds to origins listed in the comma-separated `CORS_ORIGINS` variable. Requests from origins not on this list are rejected with `403 origin_not_allowed`. If `CORS_ORIGINS` is unset, the single value in `FRONTEND_ORIGIN` is used instead.
+
+## Caching
+
+Successful FusionSolar responses are cached in-memory for `CACHE_TTL_SECONDS` (default 90s). Cache hits are logged with `cache:true` and zero latency.
 
 ## Authentication and retries
 

@@ -6,6 +6,7 @@ describe('GET /healthz', () => {
     const res = await request(app).get('/healthz');
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
-    expect(res.body.proxyReachable).toBe(true);
+    expect(typeof res.body.proxyReachable).toBe('boolean');
+    expect(res.body.build).toBe('dev');
   });
 });

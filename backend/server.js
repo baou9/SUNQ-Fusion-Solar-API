@@ -7,6 +7,8 @@ const { randomUUID } = require('crypto');
 const FusionSolarClient = require('./lib/fusionsolarClient');
 const { greenMetrics } = require('./lib/greenMetrics');
 const alarmCodes = require('./lib/alarmCodes');
+const axios = require('axios');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 
 const app = express();
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -33,6 +35,15 @@ app.use(cors({
 
 const client = new FusionSolarClient(logger);
 
+function handleErr(err, res, msg) {
+  logger.error({ err }, msg);
+  if (err.code === 'PROXY_MISCONFIGURED') {
+    res.status(500).json({ error: 'proxy_misconfigured' });
+  } else {
+    res.status(502).json({ error: 'upstream_error' });
+  }
+}
+
 app.get('/api/stations', async (req, res) => {
   try {
     const pageNo = Number(req.query.pageNo || 1);
@@ -40,8 +51,7 @@ app.get('/api/stations', async (req, res) => {
     const data = await client.stationList(pageNo, pageSize);
     res.json(data);
   } catch (err) {
-    logger.error({ err }, 'stationList failed');
-    res.status(502).json({ error: 'upstream_error' });
+    handleErr(err, res, 'stationList failed');
   }
 });
 
@@ -58,8 +68,7 @@ app.get('/api/stations/:code/overview', async (req, res) => {
     Object.assign(shaped, greenMetrics(shaped.totalEnergy));
     res.json(shaped);
   } catch (err) {
-    logger.error({ err }, 'stationOverview failed');
-    res.status(502).json({ error: 'upstream_error' });
+    handleErr(err, res, 'stationOverview failed');
   }
 });
 
@@ -68,8 +77,7 @@ app.get('/api/stations/:code/devices', async (req, res) => {
     const data = await client.stationDevices(req.params.code);
     res.json(data);
   } catch (err) {
-    logger.error({ err }, 'stationDevices failed');
-    res.status(502).json({ error: 'upstream_error' });
+    handleErr(err, res, 'stationDevices failed');
   }
 });
 
@@ -88,31 +96,22 @@ app.get('/api/stations/:code/alarms', async (req, res) => {
     const filtered = severity ? list.filter(a => a.severity === severity) : list;
     res.json({ list: filtered });
   } catch (err) {
-    logger.error({ err }, 'stationAlarms failed');
-    res.status(502).json({ error: 'upstream_error' });
+    handleErr(err, res, 'stationAlarms failed');
   }
 });
 
 app.get('/healthz', async (req, res) => {
-  const net = require('net');
   let proxyReachable = false;
   if (process.env.MA_PROXY) {
     try {
-      const u = new URL(process.env.MA_PROXY);
-      await new Promise((resolve, reject) => {
-        const socket = net.createConnection(u.port, u.hostname);
-        socket.setTimeout(2000);
-        socket.on('connect', () => { proxyReachable = true; socket.destroy(); resolve(); });
-        socket.on('timeout', () => { socket.destroy(); reject(new Error('timeout')); });
-        socket.on('error', reject);
-      });
+      const agent = new HttpsProxyAgent(process.env.MA_PROXY);
+      await axios.head('https://example.com', { httpsAgent: agent, timeout: 5000 });
+      proxyReachable = true;
     } catch (e) {
       proxyReachable = false;
     }
-  } else {
-    proxyReachable = true;
   }
-  res.json({ ok: true, version: process.env.GIT_SHA || 'dev', proxyReachable });
+  res.json({ ok: true, build: process.env.BUILD_SHA || 'dev', proxyReachable });
 });
 
 app.use((err, req, res, next) => {

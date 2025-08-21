@@ -1,8 +1,15 @@
-FROM node:18-alpine
+FROM node:18-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --production
+RUN npm ci
 COPY . .
 RUN npm run build
-EXPOSE 3000
+
+FROM node:18-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3137
+COPY --from=builder /app .
+USER node
+EXPOSE 3137
 CMD ["npm", "start"]
