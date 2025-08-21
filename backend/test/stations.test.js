@@ -22,4 +22,11 @@ describe('GET /api/stations', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.list[0].stationName).toBe('A');
   });
+
+  it('returns 400 for invalid pagination', async () => {
+    const res = await request(app).get('/api/stations?pageNo=0&pageSize=-1');
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toContain('pageNo must be a positive integer');
+    expect(res.body.errors).toContain('pageSize must be a positive integer');
+  });
 });
