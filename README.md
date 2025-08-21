@@ -20,6 +20,10 @@ npm test --prefix backend
 
 All outbound FusionSolar traffic is routed through the proxy defined in `MA_PROXY`.
 
+## CORS allowlist
+
+The backend only responds to origins listed in the comma-separated `CORS_ORIGINS` variable. Requests from origins not on this list are rejected with `403 origin_not_allowed`. If `CORS_ORIGINS` is unset, the single value in `FRONTEND_ORIGIN` is used instead.
+
 ## Authentication and retries
 
 The backend logs in to FusionSolar using credentials stored in env vars and retries once if the session expires.

@@ -9,7 +9,19 @@ const app = express();
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 app.use(pinoHttp({ logger }));
 app.use(express.json());
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || '*' }));
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_ORIGIN || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+}));
 
 const client = new FusionSolarClient();
 
@@ -75,6 +87,14 @@ app.get('/healthz', async (req, res) => {
     proxyReachable = true;
   }
   res.json({ ok: true, version: process.env.GIT_SHA || 'dev', proxyReachable });
+});
+
+app.use((err, req, res, next) => {
+  if (err && err.message === 'Not allowed by CORS') {
+    res.status(403).json({ error: 'origin_not_allowed' });
+  } else {
+    next(err);
+  }
 });
 
 const port = process.env.PORT || 8081;
