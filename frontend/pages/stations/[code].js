@@ -7,10 +7,21 @@ const fetcher = url => fetch(url).then(r => r.json());
 export default function StationDetail() {
   const router = useRouter();
   const { code } = router.query;
-  const { data: overview, error: ovErr } = useSWR(() => code ? `${API_BASE}/stations/${code}/overview` : null, fetcher, { refreshInterval: 60000 });
-  const { data: devices, error: devErr } = useSWR(() => code ? `${API_BASE}/stations/${code}/devices` : null, fetcher, { refreshInterval: 60000 });
-  const { data: alarms, error: alarmErr } = useSWR(() => code ? `${API_BASE}/stations/${code}/alarms` : null, fetcher, { refreshInterval: 60000 });
-
+  const { data: overview, error: ovErr } = useSWR(
+    () => code ? `${API_BASE}/stations/${code}/overview` : null,
+    fetcher,
+    { refreshInterval: 60000 }
+  );
+  const { data: devices, error: devErr } = useSWR(
+    () => code ? `${API_BASE}/stations/${code}/devices` : null,
+    fetcher,
+    { refreshInterval: 60000 }
+  );
+  const { data: alarms, error: alarmErr } = useSWR(
+    () => code ? `${API_BASE}/stations/${code}/alarms` : null,
+    fetcher,
+    { refreshInterval: 60000 }
+  );
   if (ovErr || devErr || alarmErr) return <div>Error loading station.</div>;
   if (!overview || !devices || !alarms) return <div>Loading...</div>;
 
