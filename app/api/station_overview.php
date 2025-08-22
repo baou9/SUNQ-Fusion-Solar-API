@@ -1,24 +1,39 @@
 <?php
-require_once __DIR__ . '/_client.php';
+declare(strict_types=1);
+
+/** @var FusionSolarClient $client */
 
 $code = $_GET['code'] ?? '';
-if (!$code) {
-    json_error(400, 'BAD_REQUEST', 'missing code');
+if ($code === '') {
+    json_fail(400, 'missing code');
 }
 
 try {
-    $body = ['stationCodes' => [$code]];
-    $resp = fs_request('POST', '/thirdData/stationRealKpi', [], $body);
-    $kpi = $resp['data'][0] ?? [];
-    $data = [
-        'currentPower' => $kpi['realTimePower'] ?? null,
-        'todayEnergy' => $kpi['dayPower'] ?? null,
-        'totalEnergy' => $kpi['totalPower'] ?? null,
-        'perpowerRatio' => $kpi['perpowerRatio'] ?? null,
+    $resp = $client->getStationRealKpi($code);
+    $kpi = ($resp['data'] ?? [])[0] ?? [];
+    $currentPower = $kpi['inverter_power'] ?? $kpi['power'] ?? $kpi['ongrid_power'] ?? null;
+    $installedCapacity = $kpi['installed_capacity'] ?? null;
+    $performanceRatio = $kpi['performance_ratio'] ?? $kpi['perpower_ratio'] ?? null;
+    $todayEnergy = $kpi['day_power'] ?? $kpi['dayEnergy'] ?? $kpi['PVYield'] ?? $kpi['today_energy'] ?? null;
+    $totalEnergy = $kpi['total_power'] ?? $kpi['totalEnergy'] ?? $kpi['total_yield'] ?? null;
+    if ($todayEnergy === null || $totalEnergy === null) {
+        $dayResp = $client->getKpiStationDay($code, (int)(microtime(true) * 1000));
+        $dayData = ($dayResp['data'] ?? [])[0] ?? [];
+        if ($todayEnergy === null) {
+            $todayEnergy = $dayData['day_power'] ?? $dayData['dayEnergy'] ?? $dayData['prodIn'] ?? null;
+        }
+        if ($totalEnergy === null) {
+            $totalEnergy = $dayData['total_power'] ?? $dayData['totalEnergy'] ?? $dayData['total_yield'] ?? null;
+        }
+    }
+    $result = [
+        'currentPower' => $currentPower,
+        'todayEnergy' => $todayEnergy,
+        'totalEnergy' => $totalEnergy,
+        'installedCapacity' => $installedCapacity,
+        'performanceRatio' => $performanceRatio,
     ];
-    json_ok($data);
-} catch (Exception $e) {
-    $status = $e->getCode() >= 400 ? $e->getCode() : 502;
-    json_error($status, 'UPSTREAM_ERROR', 'overview fetch failed');
+    json_success($result);
+} catch (Throwable $e) {
+    json_fail(502, 'Upstream error');
 }
-?>

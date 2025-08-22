@@ -1,29 +1,31 @@
 <?php
-require_once __DIR__ . '/_client.php';
+declare(strict_types=1);
+
+/** @var FusionSolarClient $client */
 
 $code = $_GET['code'] ?? '';
-if (!$code) {
-    json_error(400, 'BAD_REQUEST', 'missing code');
+if ($code === '') {
+    json_fail(400, 'missing code');
 }
 
 try {
-    $body = ['stationCode' => $code, 'pageNo' => 1, 'pageSize' => 200];
-    $resp = fs_request('POST', '/thirdData/stationDevList', [], $body);
-    $list = $resp['data']['list'] ?? [];
+    $resp = $client->getDevList($code);
+    $list = $resp['data'] ?? [];
     $devices = [];
     foreach ($list as $d) {
         $devices[] = [
-            'id' => $d['devId'] ?? ($d['id'] ?? ''),
-            'type' => $d['devTypeName'] ?? '',
-            'model' => $d['model'] ?? ($d['devTypeName'] ?? ''),
-            'status' => $d['devState'] ?? '',
-            'ratedPower' => $d['nominalPower'] ?? null,
-            'sn' => $d['esn'] ?? null,
+            'id' => $d['id'] ?? $d['devId'] ?? '',
+            'devDn' => $d['devDn'] ?? '',
+            'devName' => $d['devName'] ?? '',
+            'devTypeId' => $d['devTypeId'] ?? null,
+            'esnCode' => $d['esnCode'] ?? $d['esn'] ?? null,
+            'softwareVersion' => $d['softVer'] ?? $d['softwareVersion'] ?? null,
+            'invType' => $d['invType'] ?? null,
+            'longitude' => $d['longitude'] ?? null,
+            'latitude' => $d['latitude'] ?? null,
         ];
     }
-    json_ok($devices);
-} catch (Exception $e) {
-    $status = $e->getCode() >= 400 ? $e->getCode() : 502;
-    json_error($status, 'UPSTREAM_ERROR', 'device list failed');
+    json_success($devices);
+} catch (Throwable $e) {
+    json_fail(502, 'Upstream error');
 }
-?>

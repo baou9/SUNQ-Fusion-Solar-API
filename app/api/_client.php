@@ -1,149 +1,209 @@
 <?php
-// FusionSolar HTTP client with proxy, cookies, login, caching and logging
+declare(strict_types=1);
+
+use GuzzleHttp\Client;
+use GuzzleHttp\Cookie\CookieJar;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+
 require_once __DIR__ . '/_util.php';
-require_once __DIR__ . '/_cache.php';
 
-function fs_cookie_file() {
-    $dir = __DIR__ . '/../storage';
-    if (!is_dir($dir)) {
-        mkdir($dir, 0700, true);
-    }
-    $file = $dir . '/cookies.txt';
-    if (!file_exists($file)) {
-        touch($file);
-        chmod($file, 0600);
-    }
-    return $file;
-}
+class FusionSolarException extends \RuntimeException {}
 
-function fs_get_xsrf() {
-    $file = fs_cookie_file();
-    if (!file_exists($file)) {
-        return null;
-    }
-    foreach (file($file) as $line) {
-        if (strpos($line, "XSRF-TOKEN") !== false) {
-            $parts = explode("\t", trim($line));
-            return end($parts);
-        }
-    }
-    return null;
-}
+class FusionSolarClient
+{
+    private Client $http;
+    private CookieJar $jar;
+    private ?string $xsrf = null;
+    private array $config;
+    private LoggerInterface $logger;
+    /** @var array<string, array{expires: float, data: array}> */
+    private static array $cache = [];
 
-function fs_login($force = false) {
-    global $CONFIG;
-    if (!$force && fs_get_xsrf()) {
-        return true;
-    }
-    $url = $CONFIG['FS_BASE'] . '/thirdData/login';
-    $payload = json_encode([
-        'userName' => $CONFIG['FS_USER'],
-        'systemCode' => $CONFIG['FS_CODE'],
-    ]);
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $payload,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        CURLOPT_PROXY => $CONFIG['MA_PROXY'],
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_TIMEOUT => 20,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_COOKIEJAR => fs_cookie_file(),
-        CURLOPT_COOKIEFILE => fs_cookie_file(),
-    ]);
-    $res = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    if ($res === false || $status !== 200) {
-        throw new Exception('login_failed', $status ?: 500);
-    }
-    return true;
-}
-
-function fs_request($method, $path, $query = [], $body = null) {
-    global $CONFIG;
-    $reqId = get_req_id();
-    $url = $CONFIG['FS_BASE'] . $path;
-    if ($query) {
-        $url .= '?' . http_build_query($query);
-    }
-    $bodyStr = $body ? json_encode($body) : null;
-    $cacheKey = cache_key($method, $path, $query, $bodyStr);
-    $start = microtime(true);
-    $cacheHit = false;
-
-    if ($cached = cache_get($cacheKey)) {
-        $cacheHit = true;
-        log_json(['req_id'=>$reqId,'method'=>$method,'url_path'=>$path,'status'=>200,'latency_ms'=>0,'cache_hit'=>true,'retries'=>0]);
-        return $cached;
-    }
-
-    fs_login();
-    $headers = [];
-    if ($bodyStr !== null) {
-        $headers[] = 'Content-Type: application/json';
-    }
-    if ($token = fs_get_xsrf()) {
-        $headers[] = 'XSRF-TOKEN: ' . $token;
-    }
-
-    $retries = 0;
-    while (true) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_PROXY => $CONFIG['MA_PROXY'],
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_COOKIEJAR => fs_cookie_file(),
-            CURLOPT_COOKIEFILE => fs_cookie_file(),
+    public function __construct(array $config, ?LoggerInterface $logger = null)
+    {
+        $this->config = $config;
+        $this->logger = $logger ?? new NullLogger();
+        $this->jar = new CookieJar();
+        $stack = HandlerStack::create();
+        $stack->push(Middleware::retry(function ($retries, $request, $response, $exception) {
+            if ($retries >= 1) {
+                return false;
+            }
+            if ($exception instanceof RequestException) {
+                $code = $exception->getResponse() ? $exception->getResponse()->getStatusCode() : 0;
+            } else {
+                $code = $response ? $response->getStatusCode() : 0;
+            }
+            if ($code >= 500 && $code < 600) {
+                usleep(random_int(100, 300) * 1000);
+                return true;
+            }
+            return false;
+        }));
+        $this->http = new Client([
+            'base_uri' => $config['FS_BASE'],
+            'proxy' => $config['MA_PROXY'],
+            'timeout' => 20,
+            'connect_timeout' => 10,
+            'allow_redirects' => false,
+            'cookies' => $this->jar,
+            'headers' => [
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ],
+            'handler' => $stack,
+            'verify' => true,
         ]);
-        if ($bodyStr !== null) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $bodyStr);
-        }
-        $res = curl_exec($ch);
-        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err = curl_error($ch);
-        curl_close($ch);
-        if ($res === false) {
-            $status = 502;
-            $error = $err ?: 'curl_error';
-        } else {
-            $json = json_decode($res, true);
-            if ($status == 401 || (isset($json['failCode']) && $json['failCode'] === 'USER_MUST_RELOGIN')) {
-                fs_login(true);
-                $retries++;
-                if ($retries > 1) break; // avoid infinite
-                continue;
-            }
-            if ($status >= 500 && $status < 600) {
-                $retries++;
-                if ($retries > 1) break;
-                usleep(rand(100,300) * 1000);
-                continue;
-            }
-            if ($status == 200 && is_array($json)) {
-                cache_put($cacheKey, $json, $CONFIG['CACHE_TTL_SECONDS']);
-            }
-        }
-        break;
     }
 
-    $latency = (microtime(true) - $start) * 1000;
-    $log = ['req_id'=>$reqId,'method'=>$method,'url_path'=>$path,'status'=>$status,'latency_ms'=>(int)$latency,'cache_hit'=>$cacheHit,'retries'=>$retries];
-    if (isset($error)) $log['error'] = $error;
-    log_json($log);
-
-    if (!isset($json) || $status != 200 || !is_array($json)) {
-        throw new Exception('upstream_error', $status ?: 502);
+    /** Login to FusionSolar and capture xsrf-token */
+    public function login(): void
+    {
+        $payload = [
+            'userName' => $this->config['FS_USER'],
+            'systemCode' => $this->config['FS_CODE'],
+        ];
+        try {
+            $res = $this->http->post('/thirdData/login', ['json' => $payload]);
+            $this->xsrf = $res->getHeaderLine('xsrf-token');
+        } catch (RequestException $e) {
+            throw new FusionSolarException('login_failed', $e->getCode() ?: 500);
+        }
     }
-    return $json;
+
+    /**
+     * Generic POST request helper with auto login, retry and caching.
+     * @param string $path
+     * @param array $json
+     * @return array
+     * @throws FusionSolarException
+     */
+    public function request(string $path, array $json): array
+    {
+        $cacheKey = md5($path . '|' . md5(json_encode($json)));
+        $now = microtime(true);
+        if (isset(self::$cache[$cacheKey]) && self::$cache[$cacheKey]['expires'] > $now) {
+            $this->logger->info('fs_request', [
+                'requestId' => get_request_id(),
+                'method' => 'POST',
+                'url' => $path,
+                'status' => 200,
+                'latencyMs' => 0,
+                'cacheHit' => true,
+            ]);
+            return self::$cache[$cacheKey]['data'];
+        }
+
+        if (!$this->xsrf) {
+            $this->login();
+        }
+
+        $headers = $this->xsrf ? ['XSRF-TOKEN' => $this->xsrf] : [];
+        $start = microtime(true);
+        $relogin = false;
+        try {
+            $res = $this->http->post($path, [
+                'headers' => $headers,
+                'json' => $json,
+            ]);
+        } catch (RequestException $e) {
+            $res = $e->getResponse();
+            if ($res && $res->getStatusCode() === 401) {
+                $relogin = true;
+            } else {
+                $this->logRequest($path, $start, $res ? $res->getStatusCode() : 0, false, ['error' => $e->getMessage()]);
+                throw new FusionSolarException('upstream_error', $res ? $res->getStatusCode() : 502);
+            }
+        }
+
+        if ($relogin) {
+            $this->login();
+            $headers = $this->xsrf ? ['XSRF-TOKEN' => $this->xsrf] : [];
+            $start = microtime(true);
+            try {
+                $res = $this->http->post($path, [
+                    'headers' => $headers,
+                    'json' => $json,
+                ]);
+            } catch (RequestException $e) {
+                $res = $e->getResponse();
+                $this->logRequest($path, $start, $res ? $res->getStatusCode() : 0, false, ['error' => $e->getMessage()]);
+                throw new FusionSolarException('upstream_error', $res ? $res->getStatusCode() : 502);
+            }
+        }
+
+        $body = json_decode((string)$res->getBody(), true);
+        $status = $res->getStatusCode();
+        if ($status === 401 || (($body['failCode'] ?? 0) !== 0 && $body['failCode'] != '0')) {
+            // one re-login attempt already performed above
+            $this->logRequest($path, $start, $status, false, ['failCode' => $body['failCode'] ?? null]);
+            throw new FusionSolarException('upstream_error', $status);
+        }
+        if ($status >= 400) {
+            $this->logRequest($path, $start, $status, false);
+            throw new FusionSolarException('upstream_error', $status);
+        }
+        self::$cache[$cacheKey] = [
+            'expires' => $now + $this->config['CACHE_TTL_SECONDS'],
+            'data' => $body,
+        ];
+        $this->logRequest($path, $start, $status, false, ['failCode' => $body['failCode'] ?? null]);
+        return $body;
+    }
+
+    private function logRequest(string $path, float $start, int $status, bool $cacheHit, array $extra = []): void
+    {
+        $latency = (microtime(true) - $start) * 1000;
+        $context = array_merge([
+            'requestId' => get_request_id(),
+            'method' => 'POST',
+            'url' => $path,
+            'status' => $status,
+            'latencyMs' => (int)round($latency),
+            'cacheHit' => $cacheHit,
+        ], $extra);
+        $this->logger->info('fs_request', $context);
+    }
+
+    // Convenience endpoint wrappers
+    public function stations(int $page): array
+    {
+        return $this->request('/thirdData/stations', ['pageNo' => $page]);
+    }
+
+    public function getStationRealKpi(string $code): array
+    {
+        return $this->request('/thirdData/getStationRealKpi', ['stationCodes' => $code]);
+    }
+
+    public function getDevList(string $code): array
+    {
+        return $this->request('/thirdData/getDevList', ['stationCodes' => $code]);
+    }
+
+    public function getAlarmList(string $code, int $beginTime, int $endTime, ?string $levels = null): array
+    {
+        $payload = [
+            'stationCodes' => $code,
+            'beginTime' => $beginTime,
+            'endTime' => $endTime,
+            'language' => 'en_US',
+        ];
+        if ($levels) {
+            $payload['levels'] = $levels;
+        }
+        return $this->request('/thirdData/getAlarmList', $payload);
+    }
+
+    public function getKpiStationDay(string $code, int $collectTime): array
+    {
+        return $this->request('/thirdData/getKpiStationDay', [
+            'stationCodes' => $code,
+            'collectTime' => $collectTime,
+        ]);
+    }
 }
-?>

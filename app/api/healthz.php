@@ -1,26 +1,24 @@
 <?php
+declare(strict_types=1);
+
 require_once __DIR__ . '/_util.php';
 
-$proxyOk = false;
-$ch = curl_init('https://ifconfig.me');
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_NOBODY => true,
-    CURLOPT_PROXY => $CONFIG['MA_PROXY'],
-    CURLOPT_CONNECTTIMEOUT => 5,
-    CURLOPT_TIMEOUT => 10,
-]);
-curl_exec($ch);
-if (!curl_errno($ch) && curl_getinfo($ch, CURLINFO_HTTP_CODE) > 0) {
-    $proxyOk = true;
-}
-curl_close($ch);
+use GuzzleHttp\Client;
 
-send_headers();
-echo json_encode([
-    'ok' => true,
+$proxyOk = false;
+try {
+    $client = new Client([
+        'proxy' => $CONFIG['MA_PROXY'],
+        'timeout' => 10,
+        'connect_timeout' => 5,
+    ]);
+    $res = $client->request('HEAD', 'https://ifconfig.me');
+    $proxyOk = $res->getStatusCode() > 0;
+} catch (Throwable $e) {
+    $proxyOk = false;
+}
+
+json_success([
     'version' => $CONFIG['APP_VERSION'],
     'proxyReachable' => $proxyOk,
-    'time' => gmdate('c'),
 ]);
-?>

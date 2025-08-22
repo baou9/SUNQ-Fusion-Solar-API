@@ -1,38 +1,53 @@
 <?php
-require_once __DIR__ . '/_client.php';
-$ALARM_MAP = require __DIR__ . '/error_codes.php';
+declare(strict_types=1);
+
+/** @var FusionSolarClient $client */
 
 $code = $_GET['code'] ?? '';
-$severity = $_GET['severity'] ?? 'all';
-$allowed = ['critical','major','minor','info','all'];
-if (!$code) {
-    json_error(400, 'BAD_REQUEST', 'missing code');
-}
-if (!in_array(strtolower($severity), $allowed, true)) {
-    json_error(400, 'BAD_REQUEST', 'invalid severity');
+if ($code === '') {
+    json_fail(400, 'missing code');
 }
 
+$levelsParam = $_GET['levels'] ?? '';
+$levelsStr = null;
+if ($levelsParam !== '') {
+    $parts = array_filter(array_map('trim', explode(',', $levelsParam)));
+    $valid = [];
+    foreach ($parts as $p) {
+        if (ctype_digit($p) && (int)$p >= 1 && (int)$p <= 4) {
+            $valid[] = $p;
+        }
+    }
+    if ($valid) {
+        $levelsStr = implode(',', $valid);
+    } else {
+        json_fail(400, 'invalid levels');
+    }
+}
+
+$end = (int)(microtime(true) * 1000);
+$begin = $end - 30 * 24 * 3600 * 1000;
+
 try {
-    $body = ['stationCodes' => [$code], 'pageNo' => 1, 'pageSize' => 200];
-    $resp = fs_request('POST', '/thirdData/stationAlarmList', [], $body);
-    $list = $resp['data']['list'] ?? [];
+    $resp = $client->getAlarmList($code, $begin, $end, $levelsStr);
+    $list = $resp['data'] ?? [];
     $alarms = [];
     foreach ($list as $al) {
-        if (($al['status'] ?? '') !== '1') continue; // only active
-        $id = $al['alarmId'] ?? '';
-        $level = strtolower($al['alarmLevel'] ?? '');
-        if ($severity !== 'all' && $level !== strtolower($severity)) continue;
         $alarms[] = [
-            'id' => $id,
-            'deviceId' => $al['devId'] ?? '',
-            'level' => $level,
-            'message' => $ALARM_MAP[$id] ?? 'Unknown alarm',
-            'startTime' => $al['occurTime'] ?? '',
+            'stationCode' => $al['stationCode'] ?? '',
+            'stationName' => $al['stationName'] ?? '',
+            'devName' => $al['devName'] ?? '',
+            'devTypeId' => $al['devTypeId'] ?? null,
+            'esnCode' => $al['esnCode'] ?? null,
+            'alarmId' => $al['alarmId'] ?? null,
+            'alarmName' => $al['alarmName'] ?? '',
+            'lev' => $al['lev'] ?? $al['level'] ?? null,
+            'status' => $al['status'] ?? null,
+            'raiseTime' => $al['raiseTime'] ?? $al['occurTime'] ?? null,
+            'repairSuggestion' => $al['repairSuggestion'] ?? '',
         ];
     }
-    json_ok($alarms);
-} catch (Exception $e) {
-    $status = $e->getCode() >= 400 ? $e->getCode() : 502;
-    json_error($status, 'UPSTREAM_ERROR', 'alarm list failed');
+    json_success($alarms);
+} catch (Throwable $e) {
+    json_fail(502, 'Upstream error');
 }
-?>

@@ -1,29 +1,36 @@
 <?php
-require_once __DIR__ . '/_client.php';
+declare(strict_types=1);
 
-$pageNo = isset($_GET['pageNo']) ? (int)$_GET['pageNo'] : 1;
-$pageSize = isset($_GET['pageSize']) ? (int)$_GET['pageSize'] : 50;
-if ($pageNo < 1) $pageNo = 1;
-if ($pageSize < 1) $pageSize = 1;
-$pageNo = min($pageNo, 100);
-$pageSize = min($pageSize, 200);
+/** @var FusionSolarClient $client */
+
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) {
+    $page = 1;
+}
 
 try {
-    $body = ['pageNo' => $pageNo, 'pageSize' => $pageSize];
-    $resp = fs_request('POST', '/thirdData/stationList', [], $body);
-    $list = $resp['data']['list'] ?? $resp['data'] ?? [];
-    $stations = [];
-    foreach ($list as $s) {
-        $stations[] = [
-            'code' => $s['stationCode'] ?? $s['id'] ?? '',
-            'name' => $s['stationName'] ?? '',
+    $resp = $client->stations($page);
+    $data = $resp['data'] ?? [];
+    $list = [];
+    foreach ($data['list'] ?? [] as $s) {
+        $list[] = [
+            'plantCode' => $s['stationCode'] ?? $s['plantCode'] ?? '',
+            'plantName' => $s['stationName'] ?? $s['plantName'] ?? '',
+            'plantAddress' => $s['stationAddr'] ?? $s['stationAddress'] ?? '',
+            'latitude' => $s['latitude'] ?? null,
+            'longitude' => $s['longitude'] ?? null,
             'capacity' => $s['capacity'] ?? null,
-            'city' => $s['city'] ?? '',
+            'gridConnectionDate' => $s['gridConnectionDate'] ?? $s['gridConnectedDate'] ?? null,
         ];
     }
-    json_ok($stations);
-} catch (Exception $e) {
-    $status = $e->getCode() >= 400 ? $e->getCode() : 502;
-    json_error($status, 'UPSTREAM_ERROR', 'station list failed');
+    $result = [
+        'pageNo' => $data['pageNo'] ?? $page,
+        'pageSize' => 100,
+        'pageCount' => $data['pageCount'] ?? 0,
+        'total' => $data['total'] ?? count($list),
+        'list' => $list,
+    ];
+    json_success($result);
+} catch (Throwable $e) {
+    json_fail(502, 'Upstream error');
 }
-?>
