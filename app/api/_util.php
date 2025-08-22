@@ -27,7 +27,7 @@ function send_headers(): void {
     }
 }
 
-function handle_preflight(): void {
+function handle_preflight_and_headers(): void {
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         send_headers();
         http_response_code(204);

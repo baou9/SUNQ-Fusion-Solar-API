@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
-use GuzzleHttp\Cookie\CookieJarInterface;
 use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\HandlerStack;
@@ -71,7 +70,7 @@ class FusionSolarClient
         ];
         try {
             $res = $this->http->post('/thirdData/login', ['json' => $payload]);
-            $this->xsrf = $this->extractXsrfToken($res, $this->jar);
+            $this->xsrf = $this->extractXsrfToken($res);
         } catch (RequestException $e) {
             throw new FusionSolarException('login_failed', $e->getCode() ?: 500);
         }
@@ -157,12 +156,13 @@ class FusionSolarClient
         return $body;
     }
 
-    private function extractXsrfToken(ResponseInterface $res, CookieJarInterface $jar): ?string {
-        $hdr = $res->getHeaderLine("xsrf-token");
-        if ($hdr !== "") return $hdr;
-        foreach ($jar->toArray() as $c) {
-            if (strcasecmp($c["Name"] ?? $c["name"] ?? "", "XSRF-TOKEN") === 0) {
-                return (string)($c["Value"] ?? $c["value"] ?? "");
+    private function extractXsrfToken(ResponseInterface $res): ?string {
+        $hdr = $res->getHeaderLine('xsrf-token');
+        if ($hdr !== '') return $hdr;
+        foreach ($this->jar->toArray() as $c) {
+            $name = $c['Name'] ?? $c['name'] ?? '';
+            if (strcasecmp($name, 'XSRF-TOKEN') === 0) {
+                return (string)($c['Value'] ?? $c['value'] ?? '');
             }
         }
         return null;

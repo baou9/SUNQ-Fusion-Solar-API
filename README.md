@@ -31,6 +31,8 @@ php -S localhost:8080 -t app app/api/index.php
 
 Credentials are loaded from environment at runtime and are not stored in this repo.
 
+All outbound HTTP requests go through `MA_PROXY`. The backend logs in to FusionSolar once, captures the `xsrf-token` (or `XSRF-TOKEN` cookie) and sends `XSRF-TOKEN` on every upstream call.
+
 ## Example requests
 
 ```bash

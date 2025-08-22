@@ -3,8 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/_util.php';
-handle_preflight();
-send_headers();
+handle_preflight_and_headers();
 require_once __DIR__ . '/_logger.php';
 require_once __DIR__ . '/_client.php';
 

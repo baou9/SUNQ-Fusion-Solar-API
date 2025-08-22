@@ -17,7 +17,10 @@ API_PID=$!
 sleep 1
 first=$(curl -w '%{time_total}' -s http://127.0.0.1:$PORT_API/api/stations -o /tmp/first.json)
 second=$(curl -w '%{time_total}' -s http://127.0.0.1:$PORT_API/api/stations -o /tmp/second.json)
-preflight=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS -H "Origin: ${FRONTEND_ORIGIN}" -H "Access-Control-Request-Method: GET" http://127.0.0.1:$PORT_API/api/stations)
+preflight=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS \
+  -H "Origin: ${FRONTEND_ORIGIN:-http://localhost:3000}" \
+  -H "Access-Control-Request-Method: GET" \
+  "http://127.0.0.1:$PORT_API/api/stations")
 storage=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$PORT_API/storage/cookies.txt)
 cat /tmp/first.json
 cat /tmp/second.json
