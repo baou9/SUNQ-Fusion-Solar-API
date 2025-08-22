@@ -1,0 +1,70 @@
+:root {
+  --brand: #0d9488; /* <CLIENT_BRAND_COLOR_HEX> */
+  --bg: #ffffff;
+  --text: #111827;
+}
+[data-theme="dark"] {
+  --bg: #1f2937;
+  --text: #f9fafb;
+}
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background: var(--brand);
+  color: #fff;
+}
+.top-bar .logo {
+  height: 32px;
+  margin-right: 10px;
+}
+.station-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px;
+}
+.station-card {
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  border-radius: 4px;
+  flex: 1 1 200px;
+  cursor: pointer;
+}
+.kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 0;
+}
+.kpi {
+  flex: 1 1 150px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 10px;
+}
+.banner.error {
+  background: #f87171;
+  color: #fff;
+  padding: 10px;
+  margin: 10px;
+  border-radius: 4px;
+}
+.filters button {
+  margin-right: 5px;
+}
+.filters .active {
+  background: var(--brand);
+  color: #fff;
+}
+.sev-critical { color: #dc2626; }
+.sev-major { color: #f97316; }
+.sev-minor { color: #fbbf24; }
+.sev-info { color: #3b82f6; }

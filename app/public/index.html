@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FusionSolar Dashboard</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="https://unpkg.com/vue@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div id="app">
+  <header class="top-bar">
+    <div class="left">
+      <img :src="clientLogo" alt="Client Logo" class="logo">
+      <span>{{ clientName }}</span>
+    </div>
+    <div class="right">
+      <button @click="toggleTheme">{{ themeLabel }} mode</button>
+      <img :src="sunqLogo" alt="SUNQ Logo" class="logo">
+      <span>Built by SUNQ</span>
+    </div>
+  </header>
+
+  <main>
+    <div v-if="error" class="banner error">{{ error }}</div>
+
+    <div v-if="view === 'list'">
+      <input v-model="search" placeholder="Search stations" aria-label="Search stations">
+      <div class="station-list">
+        <div class="station-card" v-for="s in filteredStations" :key="s.stationCode" @click="openStation(s)">
+          <h3>{{ s.stationName }}</h3>
+          <p>{{ s.city }}</p>
+          <p>{{ s.capacity }} kW</p>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="view === 'detail'">
+      <button @click="backToList">&larr; Back</button>
+      <h2>{{ currentStation.stationName }}</h2>
+
+      <div class="kpis">
+        <div class="kpi" v-for="k in kpiList" :key="k.label">
+          <h4>{{ k.label }}</h4>
+          <p>{{ k.value }}</p>
+        </div>
+        <div class="kpi" v-if="overview.pr">
+          <h4>Performance Ratio</h4>
+          <p>{{ overview.pr }}%</p>
+        </div>
+      </div>
+      <p>Last updated {{ lastUpdated }}</p>
+      <div style="height:300px"><canvas id="powerChart"></canvas></div>
+
+      <h3>Devices</h3>
+      <table class="devices">
+        <tr><th>Device</th><th>Model</th><th>Serial</th><th>Status</th><th>Last Seen</th></tr>
+        <tr v-for="d in devices" :key="d.serial">
+          <td>{{ d.name }}</td><td>{{ d.model }}</td><td>{{ d.serial }}</td><td>{{ d.status }}</td><td>{{ d.lastSeen }}</td>
+        </tr>
+      </table>
+
+      <h3>Active Alarms</h3>
+      <div class="filters">
+        <button v-for="s in severities" :key="s" @click="loadAlarms(s)" :class="{active: alarmSeverity===s}">{{ s }}</button>
+      </div>
+      <table class="alarms">
+        <tr><th>Code</th><th>Severity</th><th>Message</th><th>Device</th><th>First Seen</th><th>Last Seen</th><th>Status</th></tr>
+        <tr v-for="a in alarms" :key="a.code + a.deviceName">
+          <td>{{ a.code }}</td>
+          <td :class="'sev-' + a.severity">{{ a.severity }}</td>
+          <td>{{ a.message }}</td>
+          <td>{{ a.deviceName }}</td>
+          <td>{{ a.firstSeen }}</td>
+          <td>{{ a.lastSeen }}</td>
+          <td>{{ a.status }}</td>
+        </tr>
+      </table>
+    </div>
+  </main>
+</div>
+<script>
+const CO2_FACTOR_KG_PER_KWH = 0.60;
+const TREES_PER_TON_CO2 = 45;
+const KWH_PER_HOME_PER_DAY = 30;
+
+const app = Vue.createApp({
+  data() {
+    return {
+      clientName: '<CLIENT_NAME>',
+      clientLogo: 'assets/client-logo.svg',
+      sunqLogo: 'assets/sunq-logo.svg',
+      stations: [],
+      search: '',
+      view: 'list',
+      currentStation: null,
+      overview: {},
+      devices: [],
+      alarms: [],
+      alarmSeverity: 'all',
+      severities: ['all','critical','major','minor','info'],
+      error: '',
+      lastUpdated: '',
+      theme: localStorage.getItem('theme') || 'light',
+      chart: null
+    }
+  },
+  computed: {
+    filteredStations() {
+      const s = this.search.toLowerCase();
+      return this.stations.filter(st => st.stationName.toLowerCase().includes(s));
+    },
+    kpiList() {
+      return [
+        { label: 'Current Power', value: this.overview.currentPower || '-' },
+        { label: 'Today Energy', value: this.overview.todayEnergy || '-' },
+        { label: 'Lifetime Energy', value: this.overview.totalEnergy || '-' }
+      ];
+    },
+    themeLabel() { return this.theme === 'light' ? 'Dark' : 'Light'; }
+  },
+  methods: {
+    fetchStations() {
+      fetch('../api/stations.php')
+        .then(r => r.json())
+        .then(j => {
+          if (j.ok) this.stations = j.data;
+          else this.error = 'Failed to load stations';
+        })
+        .catch(_ => this.error = 'Data service unavailable. Please try again later.');
+    },
+    openStation(st) {
+      this.view = 'detail';
+      this.currentStation = st;
+      this.refreshStation();
+      this.poller = setInterval(this.refreshStation, 60000);
+    },
+    backToList() {
+      clearInterval(this.poller);
+      this.view = 'list';
+    },
+    refreshStation() {
+      const code = this.currentStation.stationCode;
+      Promise.all([
+        fetch(`../api/station_overview.php?code=${code}`).then(r => r.json()),
+        fetch(`../api/station_devices.php?code=${code}`).then(r => r.json()),
+        fetch(`../api/station_alarms.php?code=${code}&severity=${this.alarmSeverity}`).then(r => r.json())
+      ]).then(([ov, dev, al]) => {
+          if (ov.ok) this.overview = ov.data;
+          if (dev.ok) this.devices = dev.data;
+          if (al.ok) this.alarms = al.data;
+          this.lastUpdated = new Date().toLocaleTimeString();
+          this.renderChart();
+      }).catch(_ => this.error = 'Data service unavailable. Please try again later.');
+    },
+    loadAlarms(sev) {
+      this.alarmSeverity = sev;
+      this.refreshStation();
+    },
+    toggleTheme() {
+      this.theme = this.theme === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', this.theme);
+      localStorage.setItem('theme', this.theme);
+    },
+    renderChart() {
+      if (!this.overview.powerChart) return;
+      const ctx = document.getElementById('powerChart').getContext('2d');
+      if (this.chart) this.chart.destroy();
+      this.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: this.overview.powerChart.labels,
+          datasets: [{ label: 'Power', data: this.overview.powerChart.values, borderColor: '#4CAF50' }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+  },
+  mounted() {
+    document.documentElement.setAttribute('data-theme', this.theme);
+    this.fetchStations();
+  }
+});
+
+app.mount('#app');
+</script>
+</body>
+</html>

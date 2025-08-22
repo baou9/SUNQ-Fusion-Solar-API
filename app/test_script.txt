@@ -1,0 +1,28 @@
+Manual Verification Script
+==========================
+
+1. Health Check
+   curl https://yourhost/app/api/healthz.php
+   Expect: HTTP 200 with {"ok":true} and proxyReachable true.
+
+2. List Stations
+   curl https://yourhost/app/api/stations.php?pageNo=1&pageSize=20
+   Expect: JSON array of stations.
+
+3. Station Overview
+   curl https://yourhost/app/api/station_overview.php?code=<STATION_CODE>
+   Expect: KPIs with currentPower, todayEnergy, totalEnergy.
+
+4. Station Devices
+   curl https://yourhost/app/api/station_devices.php?code=<STATION_CODE>
+   Expect: array of devices with name/model/serial/status.
+
+5. Station Alarms
+   curl https://yourhost/app/api/station_alarms.php?code=<STATION_CODE>&severity=all
+   Expect: array of active alarms with human-readable messages.
+
+6. Frontend
+   Open https://yourhost/app/public/index.html in a browser.
+   - Stations list loads within a few seconds.
+   - Click a station: overview, devices, and alarms display and auto-refresh.
+   - Toggle light/dark mode to verify UI updates.
