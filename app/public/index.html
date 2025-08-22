@@ -30,7 +30,7 @@
         <small>{{ s.city }}</small>
       </div>
     </div>
-    <div v-else>
+      <div v-else>
       <button @click="view='stations'">&lt; Back</button>
       <h2>{{ station.name }}</h2>
       <div class="card">Current Power: {{ overview.currentPower ?? 'N/A' }}</div>
@@ -65,7 +65,7 @@
           <tr v-for="a in filteredAlarms" :key="a.id+a.deviceId">
             <td>{{ a.id }}</td>
             <td>{{ a.deviceId }}</td>
-            <td>{{ a.level }}</td>
+            <td>{{ a.levelText || a.lev }}</td>
             <td>{{ a.message }}</td>
             <td>{{ a.startTime }}</td>
           </tr>
@@ -88,7 +88,7 @@ const app = Vue.createApp({
       devices: [],
       alarms: [],
       alarmSeverity: 'all',
-      severities: ['all','critical','major','minor','info'],
+      severities: ['all','critical','major','minor','warning'],
       error: null,
       search: '',
       lastUpdated: null,
@@ -96,13 +96,18 @@ const app = Vue.createApp({
     }
   },
   computed: {
+    levelsCsv() {
+      const map = { critical: 1, major: 2, minor: 3, warning: 4, info: 4, all: null };
+      const v = map[this.alarmSeverity];
+      return v ? String(v) : '';
+    },
     filteredStations() {
       const q = this.search.toLowerCase();
-      return this.stations.filter(s => s.name.toLowerCase().includes(q));
+      return (this.stations || []).filter(s => (s.name || '').toLowerCase().includes(q));
     },
     filteredAlarms() {
       if (this.alarmSeverity === 'all') return this.alarms;
-      return this.alarms.filter(a => a.level === this.alarmSeverity);
+      return (this.alarms || []).filter(a => (a.levelText || '').toLowerCase() === this.alarmSeverity);
     }
   },
   mounted() {
@@ -125,8 +130,8 @@ const app = Vue.createApp({
     },
     fetchStations() {
       fetch(`${API_BASE}/stations`).then(r => r.json()).then(j => {
-        if (!j.error) {
-          this.stations = j;
+        if (j && j.ok) {
+          this.stations = Array.isArray(j.data?.list) ? j.data.list : [];
         } else {
           this.error = 'Failed to load stations';
         }
@@ -141,13 +146,16 @@ const app = Vue.createApp({
       this.lastUpdated = new Date().toLocaleTimeString();
     },
     fetchOverview() {
-      fetch(`${API_BASE}/stations/${this.station.code}/overview`).then(r=>r.json()).then(j=>{ if(!j.error) this.overview=j; });
+      fetch(`${API_BASE}/stations/${this.station.code}/overview`)
+        .then(r => r.json()).then(j => { if (j && j.ok) this.overview = j.data; });
     },
     fetchDevices() {
-      fetch(`${API_BASE}/stations/${this.station.code}/devices`).then(r=>r.json()).then(j=>{ if(!j.error) this.devices=j; });
+      fetch(`${API_BASE}/stations/${this.station.code}/devices`)
+        .then(r => r.json()).then(j => { if (j && j.ok) this.devices = j.data; });
     },
     fetchAlarms() {
-      fetch(`${API_BASE}/stations/${this.station.code}/alarms?severity=${this.alarmSeverity}`).then(r=>r.json()).then(j=>{ if(!j.error) this.alarms=j; });
+      fetch(`${API_BASE}/stations/${this.station.code}/alarms?levels=${this.levelsCsv}`)
+        .then(r => r.json()).then(j => { if (j && j.ok) this.alarms = j.data; });
     },
     renderChart() {
       const ctx = document.getElementById('powerChart').getContext('2d');

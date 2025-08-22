@@ -25,6 +25,13 @@ if ($levelsParam !== '') {
     }
 }
 
+$severity = $_GET['severity'] ?? '';
+if ($severity !== '' && !$levelsStr) {
+    $map = ['critical' => 1, 'major' => 2, 'minor' => 3, 'warning' => 4, 'info' => 4];
+    $severity = strtolower($severity);
+    if (isset($map[$severity])) $levelsStr = (string)$map[$severity];
+}
+
 $end = (int)(microtime(true) * 1000);
 $begin = $end - 30 * 24 * 3600 * 1000;
 
@@ -33,8 +40,8 @@ try {
     $list = $resp['data'] ?? [];
     $alarms = [];
     foreach ($list as $al) {
-        $lev = $al['lev'] ?? $al['level'] ?? null;
-        $levelMap = [1 => 'critical', 2 => 'major', 3 => 'minor', 4 => 'warning'];
+        $num = (int)($al['lev'] ?? $al['level'] ?? 0);
+        $txt = [1 => 'critical', 2 => 'major', 3 => 'minor', 4 => 'warning'][$num] ?? null;
         $alarms[] = [
             'stationCode' => $al['stationCode'] ?? '',
             'stationName' => $al['stationName'] ?? '',
@@ -43,8 +50,9 @@ try {
             'esnCode' => $al['esnCode'] ?? null,
             'alarmId' => $al['alarmId'] ?? null,
             'alarmName' => $al['alarmName'] ?? '',
-            'lev' => $lev,
-            'levelText' => $lev !== null ? ($levelMap[(int)$lev] ?? null) : null,
+            'lev' => $num,
+            'level' => $txt,
+            'levelText' => $txt,
             'status' => $al['status'] ?? null,
             'raiseTime' => $al['raiseTime'] ?? $al['occurTime'] ?? null,
             'repairSuggestion' => $al['repairSuggestion'] ?? '',

@@ -43,25 +43,20 @@ function get_request_id(): string {
 
 function json_success($data): void {
     send_headers();
-    if (!headers_sent()) {
-        header('X-Request-Id: ' . ($GLOBALS['REQUEST_ID'] ?? ($GLOBALS['REQUEST_ID'] = bin2hex(random_bytes(8)))));
-    }
+    if (!headers_sent()) header('X-Request-Id: ' . get_request_id());
     echo json_encode(['ok' => true, 'data' => $data]);
     exit;
 }
 
 function json_fail(int $status, string $message): void {
     send_headers();
-    if (!headers_sent()) {
-        header('X-Request-Id: ' . ($GLOBALS['REQUEST_ID'] ?? ($GLOBALS['REQUEST_ID'] = bin2hex(random_bytes(8)))));
-    }
     http_response_code($status);
-    $reqId = $GLOBALS['REQUEST_ID'] ?? '';
+    if (!headers_sent()) header('X-Request-Id: ' . get_request_id());
     echo json_encode([
         'ok' => false,
         'error' => [
             'message' => $message,
-            'requestId' => $reqId,
+            'requestId' => get_request_id(),
         ],
     ]);
     exit;
