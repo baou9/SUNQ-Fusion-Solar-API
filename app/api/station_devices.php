@@ -1,38 +1,29 @@
 <?php
 require_once __DIR__ . '/_client.php';
-require_once __DIR__ . '/_cache.php';
 
 $code = $_GET['code'] ?? '';
 if (!$code) {
-    json_error(400, 'missing_code');
-}
-$key = 'devices_' . $code;
-$start = microtime(true);
-
-if ($cached = cache_get($key)) {
-    log_line('station_devices', microtime(true) - $start, 'hit');
-    json_ok($cached);
+    json_error(400, 'BAD_REQUEST', 'missing code');
 }
 
 try {
-    $payload = ['stationCode' => $code, 'pageNo' => 1, 'pageSize' => 200];
-    $resp = fs_request('POST', '/thirdData/stationDevList', $payload);
+    $body = ['stationCode' => $code, 'pageNo' => 1, 'pageSize' => 200];
+    $resp = fs_request('POST', '/thirdData/stationDevList', [], $body);
     $list = $resp['data']['list'] ?? [];
     $devices = [];
-    foreach ($list as $dev) {
+    foreach ($list as $d) {
         $devices[] = [
-            'name' => $dev['devName'] ?? '',
-            'model' => $dev['devTypeName'] ?? '',
-            'serial' => $dev['esn'] ?? '',
-            'status' => $dev['devState'] ?? '',
-            'lastSeen' => $dev['updateTime'] ?? '',
-            'metrics' => ['power' => $dev['power'] ?? null],
+            'id' => $d['devId'] ?? ($d['id'] ?? ''),
+            'type' => $d['devTypeName'] ?? '',
+            'model' => $d['model'] ?? ($d['devTypeName'] ?? ''),
+            'status' => $d['devState'] ?? '',
+            'ratedPower' => $d['nominalPower'] ?? null,
+            'sn' => $d['esn'] ?? null,
         ];
     }
-    cache_set($key, $devices);
-    log_line('station_devices', microtime(true) - $start, 'miss');
     json_ok($devices);
 } catch (Exception $e) {
-    log_line('station_devices', microtime(true) - $start, 'error');
-    json_error(500, 'fetch_failed');
+    $status = $e->getCode() >= 400 ? $e->getCode() : 502;
+    json_error($status, 'UPSTREAM_ERROR', 'device list failed');
 }
+?>

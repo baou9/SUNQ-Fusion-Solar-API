@@ -1,47 +1,38 @@
 <?php
 require_once __DIR__ . '/_client.php';
-require_once __DIR__ . '/_cache.php';
 $ALARM_MAP = require __DIR__ . '/error_codes.php';
 
 $code = $_GET['code'] ?? '';
 $severity = $_GET['severity'] ?? 'all';
+$allowed = ['critical','major','minor','info','all'];
 if (!$code) {
-    json_error(400, 'missing_code');
+    json_error(400, 'BAD_REQUEST', 'missing code');
 }
-$key = 'alarms_' . $code . '_' . $severity;
-$start = microtime(true);
-
-if ($cached = cache_get($key)) {
-    log_line('station_alarms', microtime(true) - $start, 'hit');
-    json_ok($cached);
+if (!in_array(strtolower($severity), $allowed, true)) {
+    json_error(400, 'BAD_REQUEST', 'invalid severity');
 }
 
 try {
-    $payload = ['stationCodes' => [$code], 'pageNo' => 1, 'pageSize' => 200];
-    $resp = fs_request('POST', '/thirdData/stationAlarmList', $payload);
+    $body = ['stationCodes' => [$code], 'pageNo' => 1, 'pageSize' => 200];
+    $resp = fs_request('POST', '/thirdData/stationAlarmList', [], $body);
     $list = $resp['data']['list'] ?? [];
     $alarms = [];
     foreach ($list as $al) {
-        $codeId = $al['alarmId'] ?? '';
+        if (($al['status'] ?? '') !== '1') continue; // only active
+        $id = $al['alarmId'] ?? '';
+        $level = strtolower($al['alarmLevel'] ?? '');
+        if ($severity !== 'all' && $level !== strtolower($severity)) continue;
         $alarms[] = [
-            'code' => $codeId,
-            'severity' => strtolower($al['alarmLevel'] ?? ''),
-            'message' => $ALARM_MAP[$codeId] ?? 'Unknown alarm',
-            'deviceName' => $al['devName'] ?? '',
-            'firstSeen' => $al['occurTime'] ?? '',
-            'lastSeen' => $al['recoverTime'] ?? '',
-            'status' => $al['status'] ?? '',
+            'id' => $id,
+            'deviceId' => $al['devId'] ?? '',
+            'level' => $level,
+            'message' => $ALARM_MAP[$id] ?? 'Unknown alarm',
+            'startTime' => $al['occurTime'] ?? '',
         ];
     }
-    if ($severity !== 'all') {
-        $alarms = array_values(array_filter($alarms, function ($a) use ($severity) {
-            return $a['severity'] === strtolower($severity);
-        }));
-    }
-    cache_set($key, $alarms);
-    log_line('station_alarms', microtime(true) - $start, 'miss');
     json_ok($alarms);
 } catch (Exception $e) {
-    log_line('station_alarms', microtime(true) - $start, 'error');
-    json_error(500, 'fetch_failed');
+    $status = $e->getCode() >= 400 ? $e->getCode() : 502;
+    json_error($status, 'UPSTREAM_ERROR', 'alarm list failed');
 }
+?>

@@ -19,7 +19,8 @@ curl_close($ch);
 send_headers();
 echo json_encode([
     'ok' => true,
-    'env' => $CONFIG['APP_ENV'],
+    'version' => $CONFIG['APP_VERSION'],
     'proxyReachable' => $proxyOk,
-    'time' => date('c'),
+    'time' => gmdate('c'),
 ]);
+?>
