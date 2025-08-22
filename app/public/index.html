@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Example Client Solar Dashboard</title>
+<link rel="stylesheet" href="assets/styles.css">
+<script src="https://unpkg.com/vue@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div id="app" v-cloak>
+  <header>
+    <div>
+      <img src="assets/client-logo.svg" class="logo" alt="Client logo"> Example Client
+    </div>
+    <div>
+      Built by SUNQ <img src="assets/sunq-logo.svg" class="logo" alt="SUNQ logo">
+      <button class="toggle" @click="toggleTheme">{{ theme==='dark' ? 'Light' : 'Dark' }}</button>
+    </div>
+  </header>
+  <div class="container">
+    <div v-if="error" class="card">{{ error }}</div>
+    <div v-if="view==='stations'">
+      <input type="text" v-model="search" placeholder="Search" aria-label="Search stations">
+      <div v-for="s in filteredStations" :key="s.stationCode" class="card" @click="selectStation(s)" role="button" tabindex="0">
+        <strong>{{ s.stationName }}</strong><br>
+        <small>{{ s.city }}</small>
+      </div>
+    </div>
+    <div v-else>
+      <button @click="view='stations'">&lt; Back</button>
+      <h2>{{ station.stationName }}</h2>
+      <div class="card">Current Power: {{ overview.currentPower ?? 'N/A' }}</div>
+      <div class="card">Today Energy: {{ overview.todayEnergy ?? 'N/A' }}</div>
+      <div class="card">Lifetime Energy: {{ overview.totalEnergy ?? 'N/A' }}</div>
+      <div v-if="overview.pr" class="card">PR: {{ overview.pr }}</div>
+      <div class="card">
+        <canvas id="powerChart" height="100"></canvas>
+      </div>
+      <h3>Devices</h3>
+      <table class="table">
+        <thead><tr><th>Device</th><th>Model</th><th>Serial</th><th>Status</th><th>Last Seen</th><th>Power</th></tr></thead>
+        <tbody>
+          <tr v-for="d in devices" :key="d.serial">
+            <td>{{ d.name }}</td>
+            <td>{{ d.model }}</td>
+            <td>{{ d.serial }}</td>
+            <td>{{ d.status }}</td>
+            <td>{{ d.lastSeen }}</td>
+            <td>{{ d.metrics.power ?? '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>Alarms</h3>
+      <div>
+        <button v-for="sev in severities" :key="sev" @click="alarmSeverity=sev" :class="{active:alarmSeverity===sev}" class="toggle" style="margin-right:4px;">{{ sev }}</button>
+      </div>
+      <table class="table">
+        <thead><tr><th>Code</th><th>Severity</th><th>Message</th><th>Device</th><th>First</th><th>Last</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr v-for="a in filteredAlarms" :key="a.code+a.deviceName">
+            <td>{{ a.code }}</td>
+            <td>{{ a.severity }}</td>
+            <td>{{ a.message }}</td>
+            <td>{{ a.deviceName }}</td>
+            <td>{{ a.firstSeen }}</td>
+            <td>{{ a.lastSeen }}</td>
+            <td>{{ a.status }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Last updated {{ lastUpdated }}</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const CO2_FACTOR_KG_PER_KWH = 0.60;
+const TREES_PER_TON_CO2 = 45;
+const KWH_PER_HOME_PER_DAY = 30;
+
+const app = Vue.createApp({
+  data() {
+    return {
+      stations: [],
+      view: 'stations',
+      station: null,
+      overview: {},
+      devices: [],
+      alarms: [],
+      alarmSeverity: 'all',
+      severities: ['all','critical','major','minor','info'],
+      error: null,
+      search: '',
+      lastUpdated: null,
+      theme: localStorage.getItem('theme') || 'light'
+    }
+  },
+  computed: {
+    filteredStations() {
+      const q = this.search.toLowerCase();
+      return this.stations.filter(s => s.stationName.toLowerCase().includes(q));
+    },
+    filteredAlarms() {
+      if (this.alarmSeverity === 'all') return this.alarms;
+      return this.alarms.filter(a => a.severity === this.alarmSeverity);
+    }
+  },
+  mounted() {
+    document.documentElement.setAttribute('data-theme', this.theme);
+    this.fetchStations();
+    setInterval(() => {
+      if (this.view === 'detail' && this.station) {
+        this.loadDetail();
+      }
+    }, 60000);
+  },
+    methods: {
+      toggleTheme() {
+        this.theme = this.theme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", this.theme);
+        localStorage.setItem("theme", this.theme);
+      },
+      fetchStations() {
+        fetch("../api/stations.php").then(r => r.json()).then(j => {
+          if (j.ok) {
+            this.stations = j.data.data || j.data;
+          } else {
+            this.error = "Failed to load stations";
+          }
+        }).catch(() => this.error = "Data service unavailable.");
+      },
+      selectStation(s) {
+        this.station = s;
+        this.view = "detail";
+        this.loadDetail();
+      },
+      loadDetail() {
+        this.fetchOverview();
+        this.fetchDevices();
+        this.fetchAlarms();
+        this.renderChart();
+        this.lastUpdated = new Date().toLocaleTimeString();
+      },
+      fetchOverview() {
+        fetch(`../api/station_overview.php?code=${this.station.stationCode}`).then(r=>r.json()).then(j=>{if(j.ok) this.overview=j.data;});
+      },
+      fetchDevices() {
+        fetch(`../api/station_devices.php?code=${this.station.stationCode}`).then(r=>r.json()).then(j=>{if(j.ok) this.devices=j.data;});
+      },
+      fetchAlarms() {
+        fetch(`../api/station_alarms.php?code=${this.station.stationCode}&severity=${this.alarmSeverity}`).then(r=>r.json()).then(j=>{if(j.ok) this.alarms=j.data;});
+      },
+      renderChart() {
+        const ctx = document.getElementById("powerChart").getContext("2d");
+        if (this.chart) this.chart.destroy();
+        this.chart = new Chart(ctx, {
+          type: "line",
+          data: { labels: [], datasets: [{ label: "Power", data: [] }] }
+        });
+      }
+    }
+});
+
+app.mount('#app');
+</script>
+</body>
+</html>
