@@ -33,6 +33,8 @@ try {
     $list = $resp['data'] ?? [];
     $alarms = [];
     foreach ($list as $al) {
+        $lev = $al['lev'] ?? $al['level'] ?? null;
+        $levelMap = [1 => 'critical', 2 => 'major', 3 => 'minor', 4 => 'warning'];
         $alarms[] = [
             'stationCode' => $al['stationCode'] ?? '',
             'stationName' => $al['stationName'] ?? '',
@@ -41,7 +43,8 @@ try {
             'esnCode' => $al['esnCode'] ?? null,
             'alarmId' => $al['alarmId'] ?? null,
             'alarmName' => $al['alarmName'] ?? '',
-            'lev' => $al['lev'] ?? $al['level'] ?? null,
+            'lev' => $lev,
+            'levelText' => $lev !== null ? ($levelMap[(int)$lev] ?? null) : null,
             'status' => $al['status'] ?? null,
             'raiseTime' => $al['raiseTime'] ?? $al['occurTime'] ?? null,
             'repairSuggestion' => $al['repairSuggestion'] ?? '',

@@ -17,6 +17,7 @@ if (preg_match('#^/storage(/|$)#', $uri)) {
     exit;
 }
 if (strpos($uri, '/api/') === 0) {
+    enforce_rate_limit($CONFIG['RATE_LIMIT_PER_MINUTE']);
     $uri = substr($uri, 4);
 }
 $segments = array_values(array_filter(explode('/', $uri)));

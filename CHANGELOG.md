@@ -8,3 +8,4 @@
 - improve health check and CORS handling
 - refresh frontend to use new API paths and show empty states
 - add `.env.example` and update documentation
+- expose request id header, add optional file cache and per-IP rate limiting

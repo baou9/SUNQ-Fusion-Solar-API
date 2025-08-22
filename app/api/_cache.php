@@ -1,40 +1,66 @@
 <?php
-// File-based cache utilities
-require_once __DIR__ . '/_util.php';
+declare(strict_types=1);
 
-function cache_dir() {
-    $dir = __DIR__ . '/../storage/cache';
-    if (!is_dir($dir)) {
-        mkdir($dir, 0700, true);
-    }
-    return $dir;
+interface CacheInterface {
+    public function get(string $key): ?array;
+    public function set(string $key, array $value, int $ttl): void;
 }
 
-function cache_key($method, $path, $query, $body) {
-    $src = strtoupper($method) . '|' . $path . '|' . http_build_query($query) . '|' . md5($body ?? '');
-    return md5($src);
+class MemoryCache implements CacheInterface {
+    /** @var array<string, array{expires: float, data: array}> */
+    private static array $store = [];
+
+    public function get(string $key): ?array {
+        $item = self::$store[$key] ?? null;
+        if (!$item || $item['expires'] < microtime(true)) {
+            return null;
+        }
+        return $item['data'];
+    }
+
+    public function set(string $key, array $value, int $ttl): void {
+        self::$store[$key] = [
+            'expires' => microtime(true) + $ttl,
+            'data' => $value,
+        ];
+    }
 }
 
-function cache_get($key) {
-    global $CONFIG;
-    $file = cache_dir() . '/' . $key . '.json';
-    if (!file_exists($file)) {
-        return null;
+class FileCache implements CacheInterface {
+    private string $dir;
+
+    public function __construct(string $dir) {
+        $this->dir = $dir;
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
     }
-    $ttl = $CONFIG['CACHE_TTL_SECONDS'];
-    if (filemtime($file) + $ttl < time()) {
-        return null;
+
+    private function path(string $key): string {
+        return $this->dir . '/' . $key . '.json';
     }
-    $data = json_decode(file_get_contents($file), true);
-    return $data;
+
+    public function get(string $key): ?array {
+        $file = $this->path($key);
+        if (!is_file($file)) return null;
+        $json = json_decode((string)@file_get_contents($file), true);
+        if (!$json || ($json['expires'] ?? 0) < microtime(true)) {
+            @unlink($file);
+            return null;
+        }
+        return $json['data'];
+    }
+
+    public function set(string $key, array $value, int $ttl): void {
+        $file = $this->path($key);
+        $payload = ['expires' => microtime(true) + $ttl, 'data' => $value];
+        @file_put_contents($file, json_encode($payload));
+    }
 }
 
-function cache_put($key, $body, $ttl = null) {
-    global $CONFIG;
-    $file = cache_dir() . '/' . $key . '.json';
-    file_put_contents($file, json_encode($body));
-    if ($ttl !== null) {
-        touch($file, time());
+function create_cache(string $backend): CacheInterface {
+    if ($backend === 'file') {
+        return new FileCache(__DIR__ . '/../storage/cache');
     }
+    return new MemoryCache();
 }
-?>

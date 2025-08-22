@@ -11,6 +11,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 require_once __DIR__ . '/_util.php';
+require_once __DIR__ . '/_cache.php';
 
 class FusionSolarException extends \RuntimeException {}
 
@@ -21,8 +22,7 @@ class FusionSolarClient
     private ?string $xsrf = null;
     private array $config;
     private LoggerInterface $logger;
-    /** @var array<string, array{expires: float, data: array}> */
-    private static array $cache = [];
+    private CacheInterface $cache;
 
     public function __construct(array $config, ?LoggerInterface $logger = null)
     {
@@ -59,6 +59,7 @@ class FusionSolarClient
             'handler' => $stack,
             'verify' => true,
         ]);
+        $this->cache = create_cache($config['CACHE_BACKEND'] ?? 'memory');
     }
 
     /** Login to FusionSolar and capture xsrf-token */
@@ -86,8 +87,8 @@ class FusionSolarClient
     public function request(string $path, array $json): array
     {
         $cacheKey = md5($path . '|' . md5(json_encode($json)));
-        $now = microtime(true);
-        if (isset(self::$cache[$cacheKey]) && self::$cache[$cacheKey]['expires'] > $now) {
+        $cached = $this->cache->get($cacheKey);
+        if ($cached !== null) {
             $this->logger->info('fs_request', [
                 'requestId' => get_request_id(),
                 'method' => 'POST',
@@ -96,7 +97,7 @@ class FusionSolarClient
                 'latencyMs' => 0,
                 'cacheHit' => true,
             ]);
-            return self::$cache[$cacheKey]['data'];
+            return $cached;
         }
 
         if (!$this->xsrf) {
@@ -148,10 +149,7 @@ class FusionSolarClient
             $this->logRequest($path, $start, $status, false);
             throw new FusionSolarException('upstream_error', $status);
         }
-        self::$cache[$cacheKey] = [
-            'expires' => $now + $this->config['CACHE_TTL_SECONDS'],
-            'data' => $body,
-        ];
+        $this->cache->set($cacheKey, $body, $this->config['CACHE_TTL_SECONDS']);
         $this->logRequest($path, $start, $status, false, ['failCode' => $body['failCode'] ?? null]);
         return $body;
     }
