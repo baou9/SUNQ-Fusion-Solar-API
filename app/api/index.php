@@ -27,11 +27,16 @@ if (preg_match('#^/storage(/|$)#', $uri)) {
 }
 if ($missingEnv && strpos($uri, '/api/') === 0) {
     send_headers();
-    if (!headers_sent()) {
-        header('X-Request-Id: ' . ($GLOBALS['REQUEST_ID'] ?? ($GLOBALS['REQUEST_ID'] = bin2hex(random_bytes(8)))));
-    }
+    header('X-Request-Id: ' . get_request_id());
     http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => ['message' => 'missing_env', 'fields' => $missingEnv, 'requestId' => $GLOBALS['REQUEST_ID']]]);
+    echo json_encode([
+        'ok' => false,
+        'error' => [
+            'message' => 'missing_env',
+            'fields' => $missingEnv,
+            'requestId' => get_request_id(),
+        ],
+    ]);
     exit;
 }
 if (strpos($uri, '/api/') === 0) {

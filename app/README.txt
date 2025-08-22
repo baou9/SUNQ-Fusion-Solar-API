@@ -4,9 +4,7 @@ SUNQ FusionSolar Dashboard
 Setup
 -----
 1. Upload the entire `app` folder to your web host via FTP.
-2. Edit `app/config/.env.php` and fill in:
-   - `FS_USER` and `FS_CODE` with FusionSolar credentials.
-   - `FRONTEND_ORIGIN` with your domain.
+2. Set environment variables (`FS_USER`, `FS_CODE`, `FRONTEND_ORIGIN`) in your hosting environment.
 3. Set permissions:
    - `app/storage` directory writable by the web server.
 4. Access the app at `https://yourdomain.tld/app/public/index.html`.
