@@ -105,7 +105,7 @@ app.get('/healthz', async (req, res) => {
   if (process.env.MA_PROXY) {
     try {
       const agent = new HttpsProxyAgent(process.env.MA_PROXY);
-      await axios.head('https://example.com', { httpsAgent: agent, timeout: 5000 });
+      await axios.head('https://ifconfig.me', { httpsAgent: agent, timeout: 5000 });
       proxyReachable = true;
     } catch (e) {
       proxyReachable = false;

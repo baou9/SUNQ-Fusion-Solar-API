@@ -19,9 +19,9 @@ describe('FusionSolarClient', () => {
       .post('/thirdData/login')
       .reply(200, { data: 'ok' }, { 'set-cookie': ['XSRF-TOKEN=abc'] });
     nock(process.env.FS_BASE)
-      .post('/thirdData/stationList')
+      .post('/thirdData/stations')
       .reply(500)
-      .post('/thirdData/stationList')
+      .post('/thirdData/stations')
       .reply(200, { data: { list: [] } });
 
     const data = await client.stationList();
@@ -40,7 +40,7 @@ describe('FusionSolarClient', () => {
       .post('/thirdData/login')
       .reply(200, { data: 'ok' }, { 'set-cookie': ['XSRF-TOKEN=abc'] });
     nock(process.env.FS_BASE)
-      .post('/thirdData/stationRealKpi')
+      .post('/thirdData/getStationRealKpi')
       .reply(200, { data: { currentPower: 1, todayEnergy: 2, totalEnergy: 3 } });
 
     await client.stationOverview('1');
@@ -59,9 +59,9 @@ describe('FusionSolarClient', () => {
       .twice()
       .reply(200, { data: 'ok' }, { 'set-cookie': ['XSRF-TOKEN=abc'] });
     nock(process.env.FS_BASE)
-      .post('/thirdData/stationList')
+      .post('/thirdData/stations')
       .reply(401, { msg: 'USER_MUST_RELOGIN' })
-      .post('/thirdData/stationList')
+      .post('/thirdData/stations')
       .reply(200, { data: { list: [1] } });
 
     const data = await client.stationList();

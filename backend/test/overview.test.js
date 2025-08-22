@@ -14,7 +14,7 @@ describe('GET /api/stations/:code/overview', () => {
       .post('/thirdData/login')
       .reply(200, { data: 'ok' }, { 'set-cookie': ['XSRF-TOKEN=abc'] });
     nock(process.env.FS_BASE)
-      .post('/thirdData/stationRealKpi')
+      .post('/thirdData/getStationRealKpi')
       .reply(200, { data: { realTimePower: 5, dayEnergy: 10, totalEnergy: 100 } });
 
     const res = await request(app).get('/api/stations/1/overview');

@@ -14,7 +14,7 @@ describe('GET /api/stations/:code/devices', () => {
       .post('/thirdData/login')
       .reply(200, { data: 'ok' }, { 'set-cookie': ['XSRF-TOKEN=abc'] });
     nock(process.env.FS_BASE)
-      .post('/thirdData/deviceList')
+      .post('/thirdData/getDevList')
       .reply(200, { data: { list: [{ id: '1' }] } });
 
     const res = await request(app).get('/api/stations/1/devices');

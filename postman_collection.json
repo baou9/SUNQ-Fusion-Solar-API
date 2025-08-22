@@ -58,6 +58,66 @@
           "path": ["healthz"]
         }
       }
+    },
+    {
+      "name": "FS Stations",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{fsBase}}/thirdData/stations",
+          "host": ["{{fsBase}}"],
+          "path": ["thirdData", "stations"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pageNo\": 1,\n  \"pageSize\": 20\n}"
+        }
+      }
+    },
+    {
+      "name": "FS Station KPI",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{fsBase}}/thirdData/getStationRealKpi",
+          "host": ["{{fsBase}}"],
+          "path": ["thirdData", "getStationRealKpi"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"stationCodes\": \"XXXX\"\n}"
+        }
+      }
+    },
+    {
+      "name": "FS Device List",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{fsBase}}/thirdData/getDevList",
+          "host": ["{{fsBase}}"],
+          "path": ["thirdData", "getDevList"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"stationCodes\": \"XXXX\"\n}"
+        }
+      }
+    },
+    {
+      "name": "FS Alarm List",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{fsBase}}/thirdData/getAlarmList",
+          "host": ["{{fsBase}}"],
+          "path": ["thirdData", "getAlarmList"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"stationCodes\": \"XXXX\",\n  \"beginTime\": 0,\n  \"endTime\": 0,\n  \"language\": \"en_US\"\n}"
+        }
+      }
     }
   ]
 }

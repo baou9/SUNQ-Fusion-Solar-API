@@ -7,14 +7,24 @@ const nock = require('nock');
 const app = require('../server');
 
 describe('GET /api/stations/:code/alarms', () => {
-  afterEach(() => nock.cleanAll());
+  afterEach(() => {
+    nock.cleanAll();
+    jest.restoreAllMocks();
+  });
 
   it('translates alarm codes and filters by severity', async () => {
     nock(process.env.FS_BASE)
       .post('/thirdData/login')
       .reply(200, { data: 'ok' }, { 'set-cookie': ['XSRF-TOKEN=abc'] });
+    const now = 1700000000000;
+    jest.spyOn(Date, 'now').mockReturnValue(now);
     nock(process.env.FS_BASE)
-      .post('/thirdData/alarmList')
+      .post('/thirdData/getAlarmList', body => {
+        expect(body.beginTime).toBe(now - 24 * 60 * 60 * 1000);
+        expect(body.endTime).toBe(now);
+        expect(body.language).toBe('en_US');
+        return body.stationCodes === '1';
+      })
       .twice()
       .reply(200, { data: { list: [{ alarmCode: '1001' }, { alarmCode: '1002' }] } });
 

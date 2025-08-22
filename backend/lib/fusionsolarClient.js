@@ -96,19 +96,28 @@ class FusionSolarClient {
   }
 
   stationList(pageNo = 1, pageSize = 20) {
-    return this.request('POST', '/thirdData/stationList', { data: { pageNo, pageSize } }, `stationList-${pageNo}-${pageSize}`);
+    return this.request('POST', '/thirdData/stations', { data: { pageNo, pageSize } }, `stationList-${pageNo}-${pageSize}`);
   }
 
   stationOverview(code) {
-    return this.request('POST', '/thirdData/stationRealKpi', { data: { stationCodes: code } }, `overview-${code}`);
+    return this.request('POST', '/thirdData/getStationRealKpi', { data: { stationCodes: code } }, `overview-${code}`);
   }
 
   stationDevices(code) {
-    return this.request('POST', '/thirdData/deviceList', { data: { stationCodes: code } }, `devices-${code}`);
+    return this.request('POST', '/thirdData/getDevList', { data: { stationCodes: code } }, `devices-${code}`);
   }
 
   stationAlarms(code, severity) {
-    return this.request('POST', '/thirdData/alarmList', { data: { stationCodes: code, severity } }, `alarms-${code}-${severity || 'all'}`);
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+    const data = {
+      stationCodes: code,
+      severity,
+      beginTime: dayAgo,
+      endTime: now,
+      language: 'en_US',
+    };
+    return this.request('POST', '/thirdData/getAlarmList', { data }, `alarms-${code}-${severity || 'all'}`);
   }
 }
 
