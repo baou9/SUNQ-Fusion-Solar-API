@@ -37,36 +37,31 @@ function handle_preflight_and_headers(): void {
     }
 }
 
-function uuidv4(): string {
-    $data = random_bytes(16);
-    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
-    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
-    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
-}
-
 function get_request_id(): string {
-    static $id = null;
-    if ($id) return $id;
-    $id = $_SERVER['HTTP_X_REQUEST_ID'] ?? uuidv4();
-    return $id;
+    return $GLOBALS['REQUEST_ID'] ?? ($GLOBALS['REQUEST_ID'] = bin2hex(random_bytes(8)));
 }
 
 function json_success($data): void {
     send_headers();
-    header('X-Request-Id: ' . get_request_id());
+    if (!headers_sent()) {
+        header('X-Request-Id: ' . ($GLOBALS['REQUEST_ID'] ?? ($GLOBALS['REQUEST_ID'] = bin2hex(random_bytes(8)))));
+    }
     echo json_encode(['ok' => true, 'data' => $data]);
     exit;
 }
 
 function json_fail(int $status, string $message): void {
     send_headers();
-    header('X-Request-Id: ' . get_request_id());
+    if (!headers_sent()) {
+        header('X-Request-Id: ' . ($GLOBALS['REQUEST_ID'] ?? ($GLOBALS['REQUEST_ID'] = bin2hex(random_bytes(8)))));
+    }
     http_response_code($status);
+    $reqId = $GLOBALS['REQUEST_ID'] ?? '';
     echo json_encode([
         'ok' => false,
         'error' => [
             'message' => $message,
-            'requestId' => get_request_id(),
+            'requestId' => $reqId,
         ],
     ]);
     exit;

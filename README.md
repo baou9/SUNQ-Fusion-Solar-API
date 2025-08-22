@@ -26,7 +26,7 @@ php -S localhost:8080 -t app app/api/index.php
 - `FS_CODE` – login system code
 - `MA_PROXY` – HTTP proxy (e.g. `http://154.70.204.15:3128`)
 - `CACHE_TTL_SECONDS` – cache time for NB responses
-- `CACHE_BACKEND` – `memory` (default) or `file` for shared cache
+- `CACHE_BACKEND` – `file` (default, stored in `app/storage/cache`, TTL from `CACHE_TTL_SECONDS`) or `memory`
 - `FRONTEND_ORIGIN` – exact origin allowed by CORS
 - `APP_VERSION` – version string exposed by `/healthz`
 - `RATE_LIMIT_PER_MINUTE` – requests per minute per IP for `/api/*` (0 disables)

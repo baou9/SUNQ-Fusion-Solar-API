@@ -4,16 +4,34 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/_util.php';
 handle_preflight_and_headers();
+$GLOBALS['REQUEST_ID'] = $GLOBALS['REQUEST_ID'] ?? bin2hex(random_bytes(8));
 require_once __DIR__ . '/_logger.php';
-require_once __DIR__ . '/_client.php';
-
 $logger = new JsonLogger();
-$client = new FusionSolarClient($CONFIG, $logger);
+$missingEnv = [];
+foreach (['FS_BASE', 'FS_USER', 'FS_CODE', 'MA_PROXY'] as $k) {
+    if (empty($CONFIG[$k])) $missingEnv[] = $k;
+}
+if ($missingEnv) {
+    $logger->error('missing_env', ['requestId' => get_request_id(), 'fields' => $missingEnv]);
+}
+require_once __DIR__ . '/_client.php';
+if (!$missingEnv) {
+    $client = new FusionSolarClient($CONFIG, $logger);
+}
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
 // deny direct access to storage directory
 if (preg_match('#^/storage(/|$)#', $uri)) {
     http_response_code(404);
+    exit;
+}
+if ($missingEnv && strpos($uri, '/api/') === 0) {
+    send_headers();
+    if (!headers_sent()) {
+        header('X-Request-Id: ' . ($GLOBALS['REQUEST_ID'] ?? ($GLOBALS['REQUEST_ID'] = bin2hex(random_bytes(8)))));
+    }
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => ['message' => 'missing_env', 'fields' => $missingEnv, 'requestId' => $GLOBALS['REQUEST_ID']]]);
     exit;
 }
 if (strpos($uri, '/api/') === 0) {
