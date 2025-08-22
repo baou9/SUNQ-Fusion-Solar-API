@@ -32,6 +32,8 @@ try {
         'totalEnergy' => $totalEnergy,
         'installedCapacity' => $installedCapacity,
         'performanceRatio' => $performanceRatio,
+        // alias for legacy SPA
+        'perpowerRatio' => $performanceRatio,
     ];
     json_success($result);
 } catch (Throwable $e) {

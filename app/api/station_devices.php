@@ -23,6 +23,12 @@ try {
             'invType' => $d['invType'] ?? null,
             'longitude' => $d['longitude'] ?? null,
             'latitude' => $d['latitude'] ?? null,
+            // aliases for the SPA's table columns
+            'type' => $d['devTypeId'] ?? null,
+            'model' => $d['invType'] ?? ($d['model'] ?? null),
+            'status' => $d['status'] ?? $d['devStatus'] ?? null,
+            'ratedPower' => $d['ratedPower'] ?? $d['capacity'] ?? null,
+            'sn' => $d['esnCode'] ?? $d['esn'] ?? null,
         ];
     }
     json_success($devices);

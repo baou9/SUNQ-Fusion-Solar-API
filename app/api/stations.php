@@ -17,6 +17,10 @@ try {
             'plantCode' => $s['stationCode'] ?? $s['plantCode'] ?? '',
             'plantName' => $s['stationName'] ?? $s['plantName'] ?? '',
             'plantAddress' => $s['stationAddr'] ?? $s['stationAddress'] ?? '',
+            // aliases expected by the legacy SPA
+            'code' => $s['stationCode'] ?? $s['plantCode'] ?? '',
+            'name' => $s['stationName'] ?? $s['plantName'] ?? '',
+            'city' => $s['stationAddr'] ?? $s['stationAddress'] ?? '',
             'latitude' => $s['latitude'] ?? null,
             'longitude' => $s['longitude'] ?? null,
             'capacity' => $s['capacity'] ?? null,
