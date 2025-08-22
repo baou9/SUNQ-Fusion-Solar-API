@@ -17,11 +17,21 @@ $CONFIG = [
 ];
 
 function send_headers(): void {
-    global $CONFIG;
+    $origin = getenv('FRONTEND_ORIGIN') ?: '';
     header('Content-Type: application/json');
-    if (!empty($CONFIG['FRONTEND_ORIGIN'])) {
-        header('Access-Control-Allow-Origin: ' . $CONFIG['FRONTEND_ORIGIN']);
+    if ($origin !== '') {
+        header('Access-Control-Allow-Origin: ' . $origin);
         header('Vary: Origin');
+        header('Access-Control-Allow-Methods: GET, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
+    }
+}
+
+function handle_preflight(): void {
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        send_headers();
+        http_response_code(204);
+        exit;
     }
 }
 

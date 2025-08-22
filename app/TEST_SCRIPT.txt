@@ -3,8 +3,8 @@ Manual Verification Script
 
 1. Ensure credentials in `app/config/.env.php` are correct.
 2. From terminal, run:
-   - `curl https://yourdomain.tld/app/api/healthz.php`
-   - `curl https://yourdomain.tld/app/api/stations.php`
+   - `curl https://yourdomain.tld/app/api/healthz`
+   - `curl https://yourdomain.tld/app/api/stations`
    Both should return JSON with `ok:true`.
 3. Open `https://yourdomain.tld/app/public/index.html` in a browser.
    - Stations list should load within a few seconds.

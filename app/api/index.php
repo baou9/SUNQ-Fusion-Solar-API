@@ -3,13 +3,20 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/_util.php';
+handle_preflight();
+send_headers();
 require_once __DIR__ . '/_logger.php';
 require_once __DIR__ . '/_client.php';
 
 $logger = new JsonLogger();
 $client = new FusionSolarClient($CONFIG, $logger);
 
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
+// deny direct access to storage directory
+if (preg_match('#^/storage(/|$)#', $uri)) {
+    http_response_code(404);
+    exit;
+}
 if (strpos($uri, '/api/') === 0) {
     $uri = substr($uri, 4);
 }

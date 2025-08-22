@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- handle CORS preflight, deny /storage access and support XSRF token from cookie
 - replace PHP utilities with env-based configuration and structured logging
 - add caching layer and robust FusionSolar client with proxy, retries and cookie management
 - expose clean REST endpoints via `/api` front controller

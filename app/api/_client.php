@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
+use GuzzleHttp\Cookie\CookieJarInterface;
+use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
@@ -69,7 +71,7 @@ class FusionSolarClient
         ];
         try {
             $res = $this->http->post('/thirdData/login', ['json' => $payload]);
-            $this->xsrf = $res->getHeaderLine('xsrf-token');
+            $this->xsrf = $this->extractXsrfToken($res, $this->jar);
         } catch (RequestException $e) {
             throw new FusionSolarException('login_failed', $e->getCode() ?: 500);
         }
@@ -153,6 +155,17 @@ class FusionSolarClient
         ];
         $this->logRequest($path, $start, $status, false, ['failCode' => $body['failCode'] ?? null]);
         return $body;
+    }
+
+    private function extractXsrfToken(ResponseInterface $res, CookieJarInterface $jar): ?string {
+        $hdr = $res->getHeaderLine("xsrf-token");
+        if ($hdr !== "") return $hdr;
+        foreach ($jar->toArray() as $c) {
+            if (strcasecmp($c["Name"] ?? $c["name"] ?? "", "XSRF-TOKEN") === 0) {
+                return (string)($c["Value"] ?? $c["value"] ?? "");
+            }
+        }
+        return null;
     }
 
     private function logRequest(string $path, float $start, int $status, bool $cacheHit, array $extra = []): void
