@@ -5,8 +5,22 @@ PHP backend proxy for Huawei FusionSolar NB API with session handling, caching a
 ## Quick start
 
 ```bash
-cp .env.example .env
-# edit .env with real credentials (do not commit)
+docker build -t fusion-solar-api .
+docker run -p 8096:8096 \
+  -e FS_BASE=https://intl.fusionsolar.huawei.com \
+  -e FS_USER=your_user \
+  -e FS_CODE=your_code \
+  -e MA_PROXY=http://154.70.204.15:3128 \
+  fusion-solar-api
+```
+
+For local development without Docker:
+
+```bash
+export FS_BASE=https://intl.fusionsolar.huawei.com
+export FS_USER=your_user
+export FS_CODE=your_code
+export MA_PROXY=http://154.70.204.15:3128
 composer install
 php -S localhost:8096 -t app app/api/index.php
 ```
