@@ -1,0 +1,10 @@
+.dockerignore
+.git
+.gitignore
+vendor
+app/storage
+app/config
+tests
+*.md
+.env
+.env.*

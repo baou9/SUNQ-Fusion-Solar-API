@@ -8,7 +8,7 @@ PHP backend proxy for Huawei FusionSolar NB API with session handling, caching a
 cp .env.example .env
 # edit .env with real credentials (do not commit)
 composer install
-php -S localhost:8080 -t app app/api/index.php
+php -S localhost:8096 -t app app/api/index.php
 ```
 
 ## Public endpoints
@@ -38,11 +38,11 @@ All outbound HTTP requests go through `MA_PROXY`. The backend logs in to FusionS
 ## Example requests
 
 ```bash
-curl http://localhost:8080/api/stations?page=1
-curl http://localhost:8080/api/stations/STATION_CODE/overview
-curl http://localhost:8080/api/stations/STATION_CODE/devices
-curl http://localhost:8080/api/stations/STATION_CODE/alarms?levels=1,2
-curl http://localhost:8080/api/healthz
+curl http://localhost:8096/api/stations?page=1
+curl http://localhost:8096/api/stations/STATION_CODE/overview
+curl http://localhost:8096/api/stations/STATION_CODE/devices
+curl http://localhost:8096/api/stations/STATION_CODE/alarms?levels=1,2
+curl http://localhost:8096/api/healthz
 ```
 
 ## Tests
