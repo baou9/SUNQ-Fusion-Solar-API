@@ -96,5 +96,26 @@ if ($path === '/thirdData/getKpiStationDay') {
     return;
 }
 
+if ($path === '/thirdData/getKpiStationYear') {
+    echo json_encode([
+        'data' => [
+            ['month' => 1, 'energy' => 50],
+            ['month' => 2, 'energy' => 60],
+            ['month' => 3, 'energy' => 70],
+            ['month' => 4, 'energy' => 80],
+            ['month' => 5, 'energy' => 90],
+            ['month' => 6, 'energy' => 100],
+            ['month' => 7, 'energy' => 110],
+            ['month' => 8, 'energy' => 120],
+            ['month' => 9, 'energy' => 130],
+            ['month' => 10, 'energy' => 140],
+            ['month' => 11, 'energy' => 150],
+            ['month' => 12, 'energy' => 160],
+        ],
+        'failCode' => 0,
+    ]);
+    return;
+}
+
 http_response_code(404);
 echo json_encode(['error' => 'not found']);
