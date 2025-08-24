@@ -38,7 +38,7 @@
       <div class="card">Total Energy: {{ overview.totalEnergy ?? 'N/A' }}</div>
       <div v-if="overview.perpowerRatio" class="card">PR: {{ overview.perpowerRatio }}</div>
       <div class="card">
-        <canvas id="powerChart" height="100"></canvas>
+        <canvas id="energyChart" height="100"></canvas>
       </div>
       <h3>Devices</h3>
       <table class="table" v-if="devices.length">
@@ -87,6 +87,7 @@ const app = Vue.createApp({
       overview: {},
       devices: [],
       alarms: [],
+      monthly: [],
       alarmSeverity: 'all',
       severities: ['all','critical','major','minor','warning'],
       error: null,
@@ -118,6 +119,7 @@ const app = Vue.createApp({
         this.fetchOverview();
         this.fetchDevices();
         this.fetchAlarms();
+        this.fetchMonthly();
         this.lastUpdated = new Date().toLocaleTimeString();
       }
     }, 60000);
@@ -143,6 +145,7 @@ const app = Vue.createApp({
       this.fetchOverview();
       this.fetchDevices();
       this.fetchAlarms();
+      this.fetchMonthly();
       this.lastUpdated = new Date().toLocaleTimeString();
     },
     fetchOverview() {
@@ -157,12 +160,24 @@ const app = Vue.createApp({
       fetch(`${API_BASE}/stations/${this.station.code}/alarms?levels=${this.levelsCsv}`)
         .then(r => r.json()).then(j => { if (j && j.ok) this.alarms = j.data; });
     },
+    fetchMonthly() {
+      const year = new Date().getFullYear();
+      fetch(`${API_BASE}/stations/${this.station.code}/monthly?year=${year}`)
+        .then(r => r.json()).then(j => {
+          if (j && j.ok) {
+            this.monthly = j.data;
+            this.renderChart();
+          }
+        });
+    },
     renderChart() {
-      const ctx = document.getElementById('powerChart').getContext('2d');
+      const ctx = document.getElementById('energyChart').getContext('2d');
       if (this.chart) this.chart.destroy();
+      const labels = this.monthly.map(m => m.month);
+      const data = this.monthly.map(m => m.energy);
       this.chart = new Chart(ctx, {
-        type: 'line',
-        data: { labels: [], datasets: [{ label: 'Power', data: [] }] }
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Monthly Energy', data }] }
       });
     }
   }

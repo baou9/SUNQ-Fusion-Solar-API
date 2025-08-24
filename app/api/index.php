@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
+$staticFile = __DIR__ . '/../' . ltrim($uri, '/');
+if ($uri !== '/' && file_exists($staticFile)) {
+    return false;
+}
+
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/_util.php';
 handle_preflight_and_headers();
@@ -19,7 +25,6 @@ if (!$missingEnv) {
     $client = new FusionSolarClient($CONFIG, $logger);
 }
 
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
 // deny direct access to storage directory
 if (preg_match('#^/storage(/|$)#', $uri)) {
     http_response_code(404);
@@ -62,6 +67,8 @@ switch ($segments[0] ?? '') {
             require __DIR__ . '/station_devices.php';
         } elseif ($sub === 'alarms') {
             require __DIR__ . '/station_alarms.php';
+        } elseif ($sub === 'monthly') {
+            require __DIR__ . '/station_monthly.php';
         } else {
             json_fail(404, 'Not found');
         }

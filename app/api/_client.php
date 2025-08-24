@@ -217,4 +217,12 @@ class FusionSolarClient
             'collectTime' => $collectTime,
         ]);
     }
+
+    public function getKpiStationYear(string $code, int $year): array
+    {
+        return $this->request('/thirdData/getKpiStationYear', [
+            'stationCodes' => $code,
+            'year' => $year,
+        ]);
+    }
 }
